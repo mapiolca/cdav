@@ -78,7 +78,7 @@ class CdavLib
 				LEFT JOIN '.MAIN_DB_PREFIX.'c_country as cos ON cos.rowid = s.fk_pays
 				WHERE 	a.id IN (SELECT ar.fk_actioncomm FROM '.MAIN_DB_PREFIX.'actioncomm_resources ar WHERE ar.element_type=\'user\' AND ar.fk_element='.intval($calid).')
 						AND a.code IN (SELECT cac.code FROM '.MAIN_DB_PREFIX.'c_actioncomm cac WHERE cac.type<>\'systemauto\')
-						AND a.entity IN ('.getEntity('societe', 1).')';
+						AND a.entity IN ('.getEntity('agenda', 1).')';
 		if($oid!==false) {
 			if($ouri===false)
 			{
@@ -149,7 +149,7 @@ class CdavLib
 				LEFT JOIN '.MAIN_DB_PREFIX.'element_contact as ec ON (ec.element_id=pt.rowid)
 				LEFT JOIN '.MAIN_DB_PREFIX.'c_type_contact as tc ON (tc.rowid=ec.fk_c_type_contact AND tc.element="project_task" AND tc.source="internal")
 				WHERE tc.element="project_task" AND tc.source="internal" AND ec.fk_socpeople='.intval($calid).'
-				AND pt.entity IN ('.getEntity('societe', 1).')';
+				AND pt.entity IN ('.getEntity('project', 1).')';
 		if($oid!==false)
 		{
 			$sql.=' AND pt.rowid = '.intval($oid);
@@ -218,7 +218,7 @@ class CdavLib
 				LEFT JOIN '.MAIN_DB_PREFIX.'c_type_contact as gtc ON (gtc.rowid=ec.fk_c_type_contact AND gtc.element="fichinter" AND gtc.source="internal")
 				WHERE gtc.element="fichinter" AND gtc.source="internal" AND ec.fk_socpeople='.intval($calid).'
 				AND fid.date IS NOT NULL
-				AND fi.entity IN ('.getEntity('societe', 1).')';
+				AND fi.entity IN ('.getEntity('intervention', 1).')';
 		if($oid!==false)
 		{
 			$sql.=' AND fid.rowid = '.intval($oid);
@@ -602,4 +602,31 @@ class CdavLib
 		return $calevents;
 	}
 
+}
+
+/**
+ * Return the entity segment to insert into cdav urls (see server.php)
+ *
+ * The segment is only added when multicompany is enabled, so that mono entity
+ * installations keep the exact same urls as before.
+ *
+ * @param	int		$entity		Entity to use, current one if empty
+ * @return	string				'' or '/<entity>'
+ */
+function cdavEntityUriSegment($entity = 0)
+{
+	global $conf;
+
+	if(function_exists('isModEnabled'))
+		$multicompany = isModEnabled('multicompany');
+	else
+		$multicompany = !empty($conf->multicompany->enabled);
+
+	if(!$multicompany)
+		return '';
+
+	if(empty($entity))
+		$entity = (empty($conf->entity) ? 1 : $conf->entity);
+
+	return '/'.((int) $entity);
 }

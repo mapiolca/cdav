@@ -60,7 +60,7 @@ class modCDav extends DolibarrModules
 		$this->editor_name = 'BEFOX SARL';
 		$this->editor_url = 'https://befox.fr/';
 		// Possible values for version are: 'development', 'experimental', 'dolibarr' or version
-		$this->version = '3.1.4';
+		$this->version = '3.2.0';
 		// Key used in llx_const table to save module status enabled/disabled (where CDAV is value of property name of module in uppercase)
 		$this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
 		// Where to store the module in setup page (0=common,1=interface,2=others,3=very specific)

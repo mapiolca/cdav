@@ -163,7 +163,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 					(SELECT MAX(a.tms)
 						FROM '.MAIN_DB_PREFIX.'actioncomm as a, '.MAIN_DB_PREFIX.'actioncomm_resources as ar
 						WHERE ar.fk_actioncomm = a.id AND ar.element_type="user"
-						AND a.entity IN ('.getEntity('societe', 1).')
+						AND a.entity IN ('.getEntity('agenda', 1).')
 						AND a.code IN (SELECT cac.code FROM '.MAIN_DB_PREFIX.'c_actioncomm cac WHERE cac.type<>"systemauto")
 						AND ar.fk_element = u.rowid) as lastupd_ev, ';
 		if(!empty($conf->project->enabled) && (!isset($conf->global->PROJECT_HIDE_TASKS) || !$conf->global->PROJECT_HIDE_TASKS) && intval(CDAV_TASK_SYNC)>0)
@@ -173,7 +173,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 						LEFT JOIN '.MAIN_DB_PREFIX.'element_contact as ec ON (ec.element_id=pt.rowid)
 						LEFT JOIN '.MAIN_DB_PREFIX.'c_type_contact as tc ON (tc.rowid=ec.fk_c_type_contact AND tc.element="project_task" AND tc.source="internal")
 						WHERE tc.element="project_task" AND tc.source="internal" AND ec.fk_socpeople=u.rowid
-						AND pt.entity IN ('.getEntity('societe', 1).') ) as lastupd_p, ';
+						AND pt.entity IN ('.getEntity('project', 1).') ) as lastupd_p, ';
 		}
 		else
 		{
@@ -186,7 +186,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 						LEFT JOIN '.MAIN_DB_PREFIX.'element_contact as ec ON (ec.element_id=fi.rowid)
 						LEFT JOIN '.MAIN_DB_PREFIX.'c_type_contact as tc ON (tc.rowid=ec.fk_c_type_contact AND tc.element="fichinter" AND tc.source="internal")
 						WHERE tc.element="fichinter" AND tc.source="internal" AND ec.fk_socpeople=u.rowid
-						AND fi.entity IN ('.getEntity('societe', 1).') ) as lastupd_fi';
+						AND fi.entity IN ('.getEntity('intervention', 1).') ) as lastupd_fi';
 		}
 		else
 		{
@@ -458,6 +458,8 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 	 */
 	function createCalendarObject($calendarId, $objectUri, $calendarData) {
 
+		global $conf;
+
 
 		debug_log("createCalendarObject( $calendarId , $objectUri )");
 
@@ -539,7 +541,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 				debug_log("    creating event");
 				$sql = "INSERT INTO ".MAIN_DB_PREFIX."actioncomm (".$reffield."entity,datep, datep2, fk_action, code, label, datec, tms, fk_user_author, fk_parent, fk_user_action, priority, transparency, fulldayevent, percent, location, durationp, note)
 							VALUES (".$refvalue."
-								1,
+								".((int) $conf->entity).",
 								'".($calendarData['fullday'] == 1 ? date('Y-m-d 00:00:00', $occurence->start) : date('Y-m-d H:i:s', $occurence->start))."',
 								'".($calendarData['fullday'] == 1 ? date('Y-m-d 23:59:59', $occurence->end-1) : date('Y-m-d H:i:s', $occurence->end))."',
 								5,
@@ -688,7 +690,8 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 							fk_user_mod		= '".(int)$this->user->id."',
 							durationp		= ".($calendarData['end'] - $calendarData['fullday'] - $calendarData['start']).",
 							tms				= NOW()
-						WHERE id = ".(int)$calendarData['id'];
+						WHERE id = ".(int)$calendarData['id']."
+						AND entity IN (".getEntity('agenda', 1).")";
 		}
 		elseif($calendarData['elem_source']=='pe')	// event
 		{
@@ -702,7 +705,8 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 							fk_user_modif	= '".(int)$this->user->id."',
 							note_private	= IF( LOCATE('".date("Y-m-d H:i")." ".$this->user->login."',note_private)>0 , note_private ,  CONCAT( COALESCE(note_private,''), '"."\r\n".date("Y-m-d H:i")." ".$this->user->login."') ),
 							tms				= NOW()
-						WHERE rowid = ".(int)$calendarData['id'];
+						WHERE rowid = ".(int)$calendarData['id']."
+						AND entity IN (".getEntity('project', 1).")";
 		}
 		elseif($calendarData['elem_source']=='pt') // todo
 		{
@@ -717,7 +721,8 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 							fk_user_modif	= '".(int)$this->user->id."',
 							note_private	= IF( LOCATE('".date("Y-m-d H:i")." ".$this->user->login."',note_private)>0 , note_private ,  CONCAT( COALESCE(note_private,''), '"."\r\n".date("Y-m-d H:i")." ".$this->user->login."') ),
 							tms				= NOW()
-						WHERE rowid = ".(int)$calendarData['id'];
+						WHERE rowid = ".(int)$calendarData['id']."
+						AND entity IN (".getEntity('project', 1).")";
 		}
 		elseif($calendarData['elem_source']=='fi') // fichinter line (fichinterdet)
 		{
@@ -728,7 +733,8 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 							date			= '".date('Y-m-d H:i:s', $calendarData['start'])."',
 							duree			= ".$duree.",
 							description		= '".$this->db->escape($calendarData['note'])."'
-						WHERE rowid = ".(int)$calendarData['id'];
+						WHERE rowid = ".(int)$calendarData['id']."
+						AND fk_fichinter IN (SELECT rowid FROM ".MAIN_DB_PREFIX."fichinter WHERE entity IN (".getEntity('intervention', 1)."))";
 			// bump parent fichinter mtime + audit trace
 			$bumpSql = "UPDATE ".MAIN_DB_PREFIX."fichinter f
 						INNER JOIN ".MAIN_DB_PREFIX."fichinterdet fd ON fd.fk_fichinter = f.rowid
@@ -736,7 +742,8 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 							f.fk_user_modif	= '".(int)$this->user->id."',
 							f.note_private	= IF( LOCATE('".date("Y-m-d H:i")." ".$this->user->login."',f.note_private)>0 , f.note_private ,  CONCAT( COALESCE(f.note_private,''), '"."\r\n".date("Y-m-d H:i")." ".$this->user->login."') ),
 							f.tms			= NOW()
-						WHERE fd.rowid = ".(int)$calendarData['id'];
+						WHERE fd.rowid = ".(int)$calendarData['id']."
+						AND f.entity IN (".getEntity('intervention', 1).")";
 			$this->db->query($bumpSql);
 		}
 
@@ -1121,7 +1128,8 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 		if (strpos($objectUri, '-ev-')!==false && strpos($objectUri,CDAV_URI_KEY)!==false)
 		{
 			$oid = intval($objectUri);
-			$sql = "SELECT count(*) FROM ".MAIN_DB_PREFIX."actioncomm WHERE id = ".$oid;
+			$sql = "SELECT count(*) FROM ".MAIN_DB_PREFIX."actioncomm WHERE id = ".$oid."
+					AND entity IN (".getEntity('agenda', 1).")";
 			$result = $this->db->query($sql);
 			if ($result===false ||  $this->db->fetch_object($result)===false)
 			{
@@ -1133,7 +1141,8 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 			$this->db->query("DELETE FROM ".MAIN_DB_PREFIX."actioncomm_resources
 							WHERE fk_actioncomm = ".$oid."
 							AND element_type = 'user'
-							AND fk_element = ".intval($calendarId));
+							AND fk_element = ".intval($calendarId)."
+							AND fk_actioncomm IN (SELECT id FROM ".MAIN_DB_PREFIX."actioncomm WHERE entity IN (".getEntity('agenda', 1)."))");
 
 			// change owner if other resource
 			$this->db->query("UPDATE ".MAIN_DB_PREFIX."actioncomm
@@ -1143,13 +1152,15 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 								AND fk_element <> ".intval($calendarId)."
 								ORDER BY rowid DESC
 								LIMIT 1)
-							WHERE id= ".$oid);
+							WHERE id= ".$oid."
+							AND entity IN (".getEntity('agenda', 1).")");
 		}
 		elseif ( (strpos($objectUri, '-pe-')!==false || strpos($objectUri, '-pt-')!==false) && strpos($objectUri,CDAV_URI_KEY)!==false)
 		{
 			$oid = intval($objectUri);
 			$elem_source = 'p?';
-			$sql = "SELECT count(*) FROM ".MAIN_DB_PREFIX."projet_task WHERE rowid = ".$oid;
+			$sql = "SELECT count(*) FROM ".MAIN_DB_PREFIX."projet_task WHERE rowid = ".$oid."
+					AND entity IN (".getEntity('project', 1).")";
 			$result = $this->db->query($sql);
 			if ($result===false ||  $this->db->fetch_object($result)===false)
 			{
@@ -1162,18 +1173,21 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 								fk_user_modif	= '".(int)$this->user->id."',
 								note_private	= IF( LOCATE('".date("Y-m-d H:i")." ".$this->user->login."',note_private)>0 , note_private ,  CONCAT( COALESCE(note_private,''), '"."\r\n".date("Y-m-d H:i")." ".$this->user->login."') ),
 								tms				= NOW()
-							WHERE rowid = ".$oid);
+							WHERE rowid = ".$oid."
+							AND entity IN (".getEntity('project', 1).")");
 			$this->db->query("DELETE ec
 							FROM ".MAIN_DB_PREFIX."element_contact as ec
 							LEFT JOIN ".MAIN_DB_PREFIX."c_type_contact as tc ON (tc.rowid=ec.fk_c_type_contact AND tc.element='project_task' AND tc.source='internal')
 							WHERE ec.element_id = ".$oid."
 							AND tc.element='project_task' AND tc.source='internal'
-							AND ec.fk_socpeople = ".intval($calendarId));
+							AND ec.fk_socpeople = ".intval($calendarId)."
+							AND ec.element_id IN (SELECT rowid FROM ".MAIN_DB_PREFIX."projet_task WHERE entity IN (".getEntity('project', 1)."))");
 		}
 		elseif (strpos($objectUri, '-fi-')!==false && strpos($objectUri,CDAV_URI_KEY)!==false)
 		{
 			$oid = intval($objectUri);
-			$sql = "SELECT fk_fichinter FROM ".MAIN_DB_PREFIX."fichinterdet WHERE rowid = ".$oid;
+			$sql = "SELECT fk_fichinter FROM ".MAIN_DB_PREFIX."fichinterdet WHERE rowid = ".$oid."
+					AND fk_fichinter IN (SELECT rowid FROM ".MAIN_DB_PREFIX."fichinter WHERE entity IN (".getEntity('intervention', 1)."))";
 			$result = $this->db->query($sql);
 			if ($result===false || ($row = $this->db->fetch_object($result))===false)
 			{
@@ -1187,13 +1201,15 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 								f.fk_user_modif	= '".(int)$this->user->id."',
 								f.note_private	= IF( LOCATE('".date("Y-m-d H:i")." ".$this->user->login."',f.note_private)>0 , f.note_private ,  CONCAT( COALESCE(f.note_private,''), '"."\r\n".date("Y-m-d H:i")." ".$this->user->login."') ),
 								f.tms			= NOW()
-							WHERE f.rowid = ".$fi_oid);
+							WHERE f.rowid = ".$fi_oid."
+							AND f.entity IN (".getEntity('intervention', 1).")");
 			$this->db->query("DELETE ec
 							FROM ".MAIN_DB_PREFIX."element_contact as ec
 							LEFT JOIN ".MAIN_DB_PREFIX."c_type_contact as tc ON (tc.rowid=ec.fk_c_type_contact AND tc.element='fichinter' AND tc.source='internal')
 							WHERE ec.element_id = ".$fi_oid."
 							AND tc.element='fichinter' AND tc.source='internal'
-							AND ec.fk_socpeople = ".intval($calendarId));
+							AND ec.fk_socpeople = ".intval($calendarId)."
+							AND ec.element_id IN (SELECT rowid FROM ".MAIN_DB_PREFIX."fichinter WHERE entity IN (".getEntity('intervention', 1)."))");
 		}
 		else
 		{

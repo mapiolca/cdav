@@ -74,8 +74,39 @@ if (! defined('NOCSRFCHECK')) define('NOCSRFCHECK','1');	// We accept to go on t
 if (! defined('NOREQUIREMENU')) define('NOREQUIREMENU','1');
 if (! defined('NOREQUIREHTML')) define('NOREQUIREHTML','1');
 if (! defined('NOREQUIREAJAX')) define('NOREQUIREAJAX','1');
+// This server is stateless (HTTP Basic auth on each request) : without a dolibarr session,
+// $_SESSION['dol_entity'] can not override the entity read from the url (see DOLENTITY below)
+if (! defined('NOSESSION')) define('NOSESSION','1');
 function llxHeader() { }
 function llxFooter() { }
+
+// Multicompany : the entity may be given as the first segment of the path,
+// ex: /cdav/server.php/2/calendars/login/2-cal-login
+// It has to be known before loading Dolibarr environment because master.inc.php
+// reads the DOLENTITY constant to set $conf->entity.
+$cdav_entity = 0;
+$cdav_pathinfo = '';
+if(isset($_SERVER['PATH_INFO']) && $_SERVER['PATH_INFO']!='')
+{
+	$cdav_pathinfo = $_SERVER['PATH_INFO'];
+}
+elseif(!empty($_SERVER['REQUEST_URI']) && !empty($_SERVER['SCRIPT_NAME']))
+{
+	// PATH_INFO is not always set (fastcgi, rewrite rules...) so rebuild it from REQUEST_URI
+	$cdav_uri = $_SERVER['REQUEST_URI'];
+	$cdav_pos = strpos($cdav_uri, '?');
+	if($cdav_pos !== false)
+		$cdav_uri = substr($cdav_uri, 0, $cdav_pos);
+	$cdav_uri = rawurldecode($cdav_uri);
+	if(strpos($cdav_uri, $_SERVER['SCRIPT_NAME']) === 0)
+		$cdav_pathinfo = substr($cdav_uri, strlen($_SERVER['SCRIPT_NAME']));
+}
+// A numeric first segment can only be an entity : no dav collection is named with digits only
+if(preg_match('#^/(\d+)(/|$)#', $cdav_pathinfo, $cdav_reg))
+{
+	$cdav_entity = (int) $cdav_reg[1];
+	define('DOLENTITY', $cdav_entity);
+}
 
 // Load Dolibarr environment
 $res = 0;
@@ -234,7 +265,9 @@ $user = new User($db);
 
 if(isset($_SERVER['PHP_AUTH_USER']) && $_SERVER['PHP_AUTH_USER']!='')
 {
-	$user->fetch('',$_SERVER['PHP_AUTH_USER']);
+	// entity has to be forced : with the default -1, User::fetch searches in every entity
+	// and returns nothing (USERDUPLICATEFOUND) when the same login exists in several ones
+	$user->fetch('', $_SERVER['PHP_AUTH_USER'], '', 0, $conf->entity);
 	$user->getrights();
 }
 
@@ -288,7 +321,13 @@ $authBackend->setRealm('Dolibarr');
 
 // The lock manager is reponsible for making sure users don't overwrite
 // each others changes.
-$lockBackend = new DAV\Locks\Backend\File($dolibarr_main_data_root.'/cdav/.locks');
+// Multicompany : dolibarr creates the module directories into DOL_DATA_ROOT/<entity> when entity > 1
+$cdav_data_root = $dolibarr_main_data_root.($conf->entity > 1 ? '/'.$conf->entity : '');
+// only when the entity data root exists, so that a bogus entity in the url creates nothing
+if(is_dir($cdav_data_root) && !is_dir($cdav_data_root.'/cdav/public'))
+	dol_mkdir($cdav_data_root.'/cdav/public', $dolibarr_main_data_root);
+
+$lockBackend = new DAV\Locks\Backend\File($cdav_data_root.'/cdav/.locks');
 
 // Principals Backend
 $principalBackend = new DAVACL\PrincipalBackend\Dolibarr($user,$db);
@@ -304,20 +343,21 @@ $nodes = array(
 	// /addressbook
 	new \Sabre\CardDAV\AddressBookRoot($principalBackend, $carddavBackend),
 	// /calendars
-	new \Sabre\CalDAV\CalendarRoot($principalBackend, $caldavBackend),
-	// / Public docs
-	new DAV\FS\Directory($dolibarr_main_data_root. '/cdav/public')
+	new \Sabre\CalDAV\CalendarRoot($principalBackend, $caldavBackend)
 );
-// admin can access all dolibarr documents
-if($user->admin)
-	$nodes[] = new DAV\FS\Directory($dolibarr_main_data_root);
+// / Public docs
+if(is_dir($cdav_data_root.'/cdav/public'))
+	$nodes[] = new DAV\FS\Directory($cdav_data_root.'/cdav/public');
+// admin can access all dolibarr documents of his entity
+if($user->admin && is_dir($cdav_data_root))
+	$nodes[] = new DAV\FS\Directory($cdav_data_root);
 
 // The server object is responsible for making sense out of the WebDAV protocol
 $server = new DAV\Server($nodes);
 
 // If your server is not on your webroot, make sure the following line has the
 // correct information
-$server->setBaseUri(dol_buildpath('cdav/server.php', 1).'/');
+$server->setBaseUri(dol_buildpath('cdav/server.php', 1).($cdav_entity ? '/'.$cdav_entity : '').'/');
 
 
 $server->addPlugin(new \Sabre\DAV\Auth\Plugin($authBackend));

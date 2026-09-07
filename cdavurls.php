@@ -55,6 +55,7 @@ if (!$res) {
 
 require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/barcode.lib.php'; // This is to include def like $genbarcode_loc and $font_loc
+require_once dol_buildpath('/cdav/lib/cdav.lib.php');
 
 function base64url_encode($data) {
   return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
@@ -91,6 +92,12 @@ if (!empty($user->societe_id) || !empty($user->socid)) // external user
 * Put here all code to build page
 ****************************************************/
 
+// Multicompany : the entity is part of the url (see server.php)
+$cdaventity    = cdavEntityUriSegment();
+$cdavserverurl = dol_buildpath('cdav/server.php', 2).$cdaventity;
+$cdavbaseurl   = ($cdaventity=='' ? dol_buildpath('cdav', 2) : $cdavserverurl);
+$cdavicsurl    = dol_buildpath('cdav/ics.php', 2).'?'.($cdaventity=='' ? '' : 'entity='.((int) $conf->entity).'&');
+
 llxHeader('',$langs->trans($type.'url'),'');
 
 echo '<H2>'.$langs->trans($type.'url').'</H2>';
@@ -104,7 +111,7 @@ if(!empty($conf->global->CDAV_QRCODE_DAVX5_ENABLED)) {
 	$tcpdfEncoding = $qrmodule->getTcpdfEncodingType('QRCODE');
 	require_once TCPDF_PATH.'tcpdf_barcodes_2d.php';
 	$davx = "davx5://" . $user->login . ":@";
-	$uri = str_replace(["http://", "https://"],[$davx, $davx],dol_buildpath('cdav', 2));
+	$uri = str_replace(["http://", "https://"],[$davx, $davx],$cdavbaseurl);
 	$barcodeobj = new TCPDF2DBarcode($uri, $tcpdfEncoding);
 	$qrdata = $barcodeobj->getBarcodePngData();
 	print "<img src='data:image/png;base64," . base64_encode($qrdata) . "' /> <br />";
@@ -114,21 +121,23 @@ if($type=='CardDAV')
 {
 	echo '<h3>'.$langs->trans('URLGeneric').'</h3>';
 	echo '<PRE>';
-	echo dol_buildpath('cdav', 2)."\n";
-	echo dol_buildpath('cdav/server.php', 2)."\n";
-	echo dol_buildpath('cdav', 2)."/server.php/principals/".$user->login."/";
+	if($cdaventity=='')
+		echo dol_buildpath('cdav', 2)."\n";
+	echo $cdavserverurl."\n";
+	echo $cdavserverurl."/principals/".$user->login."/";
 	echo '</PRE>';
 
 	echo '<h3>'.$langs->trans('URLforCardDAV', 2).'</h3>';
-	echo '<PRE>'.dol_buildpath('cdav/server.php', 2).'/addressbooks/'.$user->login.'/default/</PRE>';
+	echo '<PRE>'.$cdavserverurl.'/addressbooks/'.$user->login.'/default/</PRE>';
 }
 elseif($type=='CalDAV')
 {
 	echo '<h3>'.$langs->trans('URLGeneric').'</h3>';
 	echo '<PRE>';
-	echo dol_buildpath('cdav', 2)."\n";
-	echo dol_buildpath('cdav/server.php', 2)."\n";
-	echo dol_buildpath('cdav', 2)."/server.php/principals/".$user->login."/";
+	if($cdaventity=='')
+		echo dol_buildpath('cdav', 2)."\n";
+	echo $cdavserverurl."\n";
+	echo $cdavserverurl."/principals/".$user->login."/";
 	echo '</PRE>';
 
 	echo '<h3>'.$langs->trans('URLforCalDAV').'</h3>';
@@ -143,6 +152,7 @@ elseif($type=='CalDAV')
 		$sql = 'SELECT u.rowid, u.login, u.firstname, u.lastname
 			FROM '.MAIN_DB_PREFIX.'user u WHERE '.$fk_soc_fieldname.' IS NULL
 			AND u.fk_soc IS NULL AND u.statut = 1
+			AND u.entity IN ('.getEntity('user', 1).')
 			ORDER BY login';
 		$result = $db->query($sql);
 		while($row = $db->fetch_array($result))
@@ -150,14 +160,14 @@ elseif($type=='CalDAV')
 			if($row['rowid'] == $user->id)
 				echo '<strong>';
 			echo $row['firstname'].' '.$row['lastname'].' :';
-			echo '<PRE>'.dol_buildpath('cdav/server.php', 2).'/calendars/'.$user->login.'/'.$row['rowid'].'-cal-'.$row['login'].'</PRE><br/>';
+			echo '<PRE>'.$cdavserverurl.'/calendars/'.$user->login.'/'.$row['rowid'].'-cal-'.$row['login'].'</PRE><br/>';
 			if($row['rowid'] == $user->id)
 				echo '</strong>';
 		}
 	}
 	else
 	{
-		echo '<PRE>'.dol_buildpath('cdav/server.php', 2).'/calendars/'.$user->login.'/'.$user->id.'-cal-'.$user->login.'</PRE>';
+		echo '<PRE>'.$cdavserverurl.'/calendars/'.$user->login.'/'.$user->id.'-cal-'.$user->login.'</PRE>';
 	}
 
 }
@@ -176,28 +186,29 @@ elseif($type=='ICS')
 		$sql = 'SELECT u.rowid, u.login, u.firstname, u.lastname
 			FROM '.MAIN_DB_PREFIX.'user u WHERE '.$fk_soc_fieldname.' IS NULL
 			AND u.fk_soc IS NULL  AND u.statut = 1
+			AND u.entity IN ('.getEntity('user', 1).')
 			ORDER BY login';
 		$result = $db->query($sql);
 		while($row = $db->fetch_array($result))
 		{
 			echo '<h4>'.$row['firstname'].' '.$row['lastname'].' :</h4>';
 
-			echo "<PRE>".$langs->trans('Full')." :\n".dol_buildpath('cdav/ics.php', 2).'?token='.base64url_encode(openssl_encrypt($row['rowid'].'+ø+full', 'aes-256-cbc', CDAV_URI_KEY, true))."\n\n";
-			echo $langs->trans('NoLabel')." :\n".dol_buildpath('cdav/ics.php', 2).'?token='.base64url_encode(openssl_encrypt($row['rowid'].'+ø+nolabel', 'aes-256-cbc', CDAV_URI_KEY, true)).'</PRE><br/>';
+			echo "<PRE>".$langs->trans('Full')." :\n".$cdavicsurl.'token='.base64url_encode(openssl_encrypt($row['rowid'].'+ø+full', 'aes-256-cbc', CDAV_URI_KEY, true))."\n\n";
+			echo $langs->trans('NoLabel')." :\n".$cdavicsurl.'token='.base64url_encode(openssl_encrypt($row['rowid'].'+ø+nolabel', 'aes-256-cbc', CDAV_URI_KEY, true)).'</PRE><br/>';
 
 		}
 	}
 	else
 	{
-		echo "<PRE>".$langs->trans('Full')." :\n".dol_buildpath('cdav/ics.php', 2).'?token='.base64url_encode(openssl_encrypt($user->id.'+ø+full', 'aes-256-cbc', CDAV_URI_KEY, true))."\n\n";
-		echo $langs->trans('NoLabel')." :\n".dol_buildpath('cdav/ics.php', 2).'?token='.base64url_encode(openssl_encrypt($user->id.'+ø+nolabel', 'aes-256-cbc', CDAV_URI_KEY, true)).'</PRE><br/>';
+		echo "<PRE>".$langs->trans('Full')." :\n".$cdavicsurl.'token='.base64url_encode(openssl_encrypt($user->id.'+ø+full', 'aes-256-cbc', CDAV_URI_KEY, true))."\n\n";
+		echo $langs->trans('NoLabel')." :\n".$cdavicsurl.'token='.base64url_encode(openssl_encrypt($user->id.'+ø+nolabel', 'aes-256-cbc', CDAV_URI_KEY, true)).'</PRE><br/>';
 	}
 
 }
 else
 {
 	echo '<h3>'.$langs->trans('URLGeneric').'</h3>';
-	echo '<PRE>'.dol_buildpath('cdav', 2).'</PRE>';
+	echo '<PRE>'.$cdavbaseurl.'</PRE>';
 }
 
 // End of page

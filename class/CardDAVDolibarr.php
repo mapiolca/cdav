@@ -68,7 +68,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 
 		$sql = 'SELECT MAX(GREATEST(COALESCE(s.tms, p.tms), p.tms)) lastupd FROM '.MAIN_DB_PREFIX.'socpeople as p
 				LEFT JOIN '.MAIN_DB_PREFIX.'societe as s ON s.rowid = p.fk_soc
-				WHERE p.entity IN ('.getEntity('societe', 1).')
+				WHERE p.entity IN ('.getEntity('socpeople', 1).')
 				AND (p.priv=0 OR (p.priv=1 AND p.fk_user_creat='.$this->user->id.'))';
 		$result = $this->db->query($sql);
 		$row = $this->db->fetch_array($result);
@@ -117,7 +117,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		{
 			$sql = 'SELECT MAX(GREATEST(COALESCE(s.tms, p.tms), p.tms)) lastupd FROM '.MAIN_DB_PREFIX.'adherent as p
 					LEFT JOIN '.MAIN_DB_PREFIX.'societe as s ON s.rowid = p.fk_soc
-					WHERE p.entity IN ('.getEntity('societe', 1).')';
+					WHERE p.entity IN ('.getEntity('adherent', 1).')';
 			$result = $this->db->query($sql);
 			$row = $this->db->fetch_array($result);
 			$lastupd = strtotime($row['lastupd']);
@@ -208,7 +208,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 				LEFT JOIN '.MAIN_DB_PREFIX.'c_country as cos ON cos.rowid = s.fk_pays
 				LEFT JOIN '.MAIN_DB_PREFIX.'categorie_contact as cc ON cc.fk_socpeople = p.rowid
 				LEFT JOIN '.MAIN_DB_PREFIX.'categorie as cat ON cat.rowid = cc.fk_categorie
-				WHERE p.entity IN ('.getEntity('societe', 1).')
+				WHERE p.entity IN ('.getEntity('socpeople', 1).')
 				AND p.statut=1
 				AND (p.priv=0 OR (p.priv=1 AND p.fk_user_creat='.$this->user->id.'))
 				'.$sqlWhere.'
@@ -238,7 +238,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 				LEFT JOIN '.MAIN_DB_PREFIX.'c_country as cos ON cos.rowid = s.fk_pays
 				LEFT JOIN '.MAIN_DB_PREFIX.'categorie_contact as cc ON cc.fk_socpeople = p.rowid
 				LEFT JOIN '.MAIN_DB_PREFIX.'categorie as cat ON cat.rowid = cc.fk_categorie
-				WHERE p.entity IN ('.getEntity('societe', 1).')
+				WHERE p.entity IN ('.getEntity('adherent', 1).')
 				AND p.statut=1
 				'.$sqlWhere.'
 				GROUP BY p.rowid';
@@ -366,7 +366,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		if(!empty($obj->email))
 			$carddata.="EMAIL;PREF=1:".str_replace(';','\;',$obj->email)."\n";
 		if(!empty($obj->soc_email) && $obj->soc_email!=$obj->email)
-			$carddata.="EMAIL:".str_replace(';','\;',$obj->soc_email)."\n";
+			$carddata.="EMAIL".(empty($obj->email)?";PREF=1":"").":".str_replace(';','\;',$obj->soc_email)."\n";
 		if(!empty($obj->soc_url))
 		{
 			if(strpos($obj->soc_url,'://')===false)
@@ -511,7 +511,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		if(!empty($obj->email))
 			$carddata.="EMAIL;PREF=1:".str_replace(';','\;',$obj->email)."\n";
 		if(!empty($obj->soc_email) && $obj->soc_email!=$obj->email)
-			$carddata.="EMAIL:".str_replace(';','\;',$obj->soc_email)."\n";
+			$carddata.="EMAIL".(empty($obj->email)?";PREF=1":"").":".str_replace(';','\;',$obj->soc_email)."\n";
 		if(!empty($obj->soc_url))
 		{
 			if(strpos($obj->soc_url,'://')===false)
@@ -1508,7 +1508,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 				if(substr($fld,0,1)!='_')
 					$sql.="'".$this->db->escape($val)."',";
 			}
-			$sql.= "1,NOW(),NOW(),".$this->user->id.",".$this->user->id.")";
+			$sql.= ((int) $conf->entity).",NOW(),NOW(),".$this->user->id.",".$this->user->id.")";
 
 			$res = $this->db->query($sql);
 			if ( ! $res)
@@ -1563,7 +1563,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 				if(substr($fld,0,1)!='_')
 					$sql.="'".$this->db->escape($val)."',";
 			}
-			$sql.= "1,NOW(),NOW(),".$this->user->id.",".$this->user->id.")";
+			$sql.= ((int) $conf->entity).",NOW(),NOW(),".$this->user->id.",".$this->user->id.")";
 
 			$res = $this->db->query($sql);
 			if ( ! $res)
@@ -1603,7 +1603,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 				if(substr($fld,0,1)!='_')
 					$sql.="'".$this->db->escape($val)."',";
 			}
-			$sql.= "1,NOW(),NOW(),".$this->user->id.",".$this->user->id.")";
+			$sql.= ((int) $conf->entity).",NOW(),NOW(),".$this->user->id.",".$this->user->id.")";
 
 			$res = $this->db->query($sql);
 			if ( ! $res)
@@ -1672,6 +1672,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			}
 			$sql.= " tms = NOW(), fk_user_modif = ".$this->user->id;
 			$sql.= " WHERE rowid = ".$contactid;
+			$sql.= " AND entity IN (".getEntity('socpeople', 1).")";
 			$res = $this->db->query($sql);
 
 			$this->db->query($sql);
@@ -1707,6 +1708,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			}
 			$sql.= " tms = NOW(), fk_user_modif = ".$this->user->id;
 			$sql.= " WHERE rowid = ".$socid;
+			$sql.= " AND entity IN (".getEntity('societe', 1).")";
 			$res = $this->db->query($sql);
 			$this->db->query($sql);
 		}
@@ -1728,6 +1730,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			}
 			$sql.= " tms = NOW(), fk_user_mod = ".$this->user->id;
 			$sql.= " WHERE rowid = ".$adhid;
+			$sql.= " AND entity IN (".getEntity('adherent', 1).")";
 			$res = $this->db->query($sql);
 			$this->db->query($sql);
 		}
@@ -1757,6 +1760,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			$sql = "UPDATE ".MAIN_DB_PREFIX."socpeople SET ";
 			$sql.= " statut = 0, tms = NOW(), fk_user_modif = ".$this->user->id;
 			$sql.= " WHERE rowid = ".$contactid;
+			$sql.= " AND entity IN (".getEntity('socpeople', 1).")";
 			$res = $this->db->query($sql);
 
 			return true;
@@ -1773,6 +1777,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			$sql = "UPDATE ".MAIN_DB_PREFIX."societe SET ";
 			$sql.= " status = 0, tms = NOW(), fk_user_modif = ".$this->user->id;
 			$sql.= " WHERE rowid = ".$socid;
+			$sql.= " AND entity IN (".getEntity('societe', 1).")";
 			$res = $this->db->query($sql);
 
 			return true;
@@ -1789,6 +1794,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			$sql = "UPDATE ".MAIN_DB_PREFIX."adherent SET ";
 			$sql.= " statut = 0, tms = NOW(), fk_user_mod = ".$this->user->id;
 			$sql.= " WHERE rowid = ".$adhid;
+			$sql.= " AND entity IN (".getEntity('adherent', 1).")";
 			$res = $this->db->query($sql);
 
 			return true;

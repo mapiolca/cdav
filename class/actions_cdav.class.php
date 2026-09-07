@@ -389,7 +389,7 @@ class ActionsCDav
 				LEFT JOIN ' . MAIN_DB_PREFIX . 'user as us ON (us.rowid=ec.fk_socpeople)
 				LEFT JOIN ' . MAIN_DB_PREFIX . 'c_type_contact as tc ON (tc.rowid=ec.fk_c_type_contact AND tc.element="project_task" AND tc.source="internal")
 				WHERE tc.element="project_task" AND tc.source="internal" AND us.login IS NOT NULL
-				AND pt.fk_projet=' . intval($parameters['id']) . ' AND pt.entity IN (' . getEntity('societe', 1) . ')
+				AND pt.fk_projet=' . intval($parameters['id']) . ' AND pt.entity IN (' . getEntity('project', 1) . ')
 				ORDER BY pt.rowid, us.login';
 			$result = $db->query($sql);
 			echo "\n<script>\n$(function() {\n";

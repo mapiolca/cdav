@@ -21,12 +21,22 @@ if (! defined('NOCSRFCHECK')) define('NOCSRFCHECK','1');	// We accept to go on t
 if (! defined('NOREQUIREMENU')) define('NOREQUIREMENU','1');
 if (! defined('NOREQUIREHTML')) define('NOREQUIREHTML','1');
 if (! defined('NOREQUIREAJAX')) define('NOREQUIREAJAX','1');
+// Stateless page : without a dolibarr session, $_SESSION['dol_entity'] can not
+// override the entity read from the url (see DOLENTITY below)
+if (! defined('NOSESSION')) define('NOSESSION','1');
 function llxHeader() { }
 function llxFooter() { }
 
 function base64url_decode($data) {
   return base64_decode(str_pad(strtr($data, '-_', '+/'), strlen($data) % 4, '=', STR_PAD_RIGHT));
 } 
+
+// Multicompany : the entity is given as a plain url parameter (the token can not carry it,
+// it is only decipherable once CDAV_URI_KEY is known, ie after Dolibarr is loaded).
+// It has to be known before loading Dolibarr environment because master.inc.php
+// reads the DOLENTITY constant to set $conf->entity.
+if(isset($_GET['entity']) && (int) $_GET['entity'] > 0)
+	define('DOLENTITY', (int) $_GET['entity']);
 
 // Load Dolibarr environment
 $res = 0;
@@ -183,20 +193,31 @@ if (! isset($arrTmp[1]) || ! in_array(trim($arrTmp[1]), array('nolabel', 'full')
 $id 	= trim($arrTmp[0]);
 $type 	= trim($arrTmp[1]);
 
+// The token is the authorization, but $user must stay a real User object : dolibarr core
+// code calls User methods on the global $user (dol_syslog() does $user->hasRight('debugbar','read')
+// on every query), and a stdClass makes it fatal.
+$user = new User($db);
+// the entity is checked against getEntity('user', 1), ie the very list of users
+// cdavurls.php builds the ics tokens for (shared entities included)
+$allowed = array_map('intval', explode(',', getEntity('user', 1)));
+if($user->fetch($id) <= 0 || !in_array((int) $user->entity, $allowed))
+{
+	// unknown user, or user out of the entities visible from this one
+	echo 'Unauthorized Access !';
+	exit;
+}
+$user->getrights();
+
 header('Content-type: text/calendar; charset=utf-8');
 header('Content-Disposition: attachment; filename=Calendar-'.$id.'-'.$type.'.ics');
 
-//fake user having right on this calendar
-$user = new stdClass();
+// grant the rights needed to read this calendar, whatever the real ones are
+if(!isset($user->rights->agenda))				$user->rights->agenda = new stdClass();
+if(!isset($user->rights->agenda->myactions))	$user->rights->agenda->myactions = new stdClass();
+if(!isset($user->rights->agenda->allactions))	$user->rights->agenda->allactions = new stdClass();
+if(!isset($user->rights->societe))				$user->rights->societe = new stdClass();
+if(!isset($user->rights->societe->client))		$user->rights->societe->client = new stdClass();
 
-$user->rights = new stdClass();
-$user->rights->agenda = new stdClass();
-$user->rights->agenda->myactions = new stdClass();
-$user->rights->agenda->allactions = new stdClass();
-$user->rights->societe = new stdClass();
-$user->rights->societe->client = new stdClass();
-
-$user->id = $id;
 $user->rights->agenda->myactions->read = true;
 $user->rights->agenda->allactions->read = true;
 $user->rights->societe->client->voir = false;
