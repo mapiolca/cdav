@@ -97,7 +97,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			if (!isset($this->user->rights->fournisseur->lire))
 				$sql .= ' AND (s.fournisseur <> 1 OR s.client <> 0)'; // client=0, fournisseur=0 must be visible
 			if (CDAV_THIRD_SYNC==1) // without contact
-				$sql .= ' AND (SELECT count(sp.rowid) FROM llx_socpeople sp WHERE sp.fk_soc=s.rowid)=0';
+				$sql .= ' AND (SELECT count(sp.rowid) FROM '.MAIN_DB_PREFIX.'socpeople sp WHERE sp.fk_soc=s.rowid)=0';
 			$result = $this->db->query($sql);
 			$row = $this->db->fetch_array($result);
 			$lastupd = strtotime($row['lastupd']);
@@ -269,10 +269,382 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		if (!isset($this->user->rights->fournisseur->lire))
 			$sql .= ' AND (s.fournisseur <> 1 OR s.client <> 0)'; // client=0, fournisseur=0 must be visible
 		if (CDAV_THIRD_SYNC==1) // without contact
-			$sql .= ' AND (SELECT count(sp.rowid) FROM llx_socpeople sp WHERE sp.fk_soc=s.rowid)=0';
+			$sql .= ' AND (SELECT count(sp.rowid) FROM '.MAIN_DB_PREFIX.'socpeople sp WHERE sp.fk_soc=s.rowid)=0';
 		$sql .= $sqlWhere.' GROUP BY s.rowid';
 
 		return $sql;
+	}
+
+	/**
+	 * Social networks handled by cdav, indexed by Dolibarr dictionary code
+	 * (llx_c_socialnetworks.code). Single source of truth shared by
+	 * _socialNetworksToVCard() and _socialNetworksFromVCard(), so that both
+	 * directions can not diverge : adding a network is one line here.
+	 *
+	 * 'kind' says how the network travels in a vCard, because no single property
+	 * is understood by every platform :
+	 *   'im'     => IMPP;X-SERVICE-TYPE=<label>:<scheme>:<value>
+	 *               read by iOS (Instant Message) and by DAVx5/Android (IM row)
+	 *   'social' => X-SOCIALPROFILE;TYPE=<code>;X-USER=<value>:<url>
+	 *               read by iOS (Social Profile). Android has no social profile
+	 *               row and Thunderbird has no social/chat field at all, so both
+	 *               simply ignore it (they never send it back either, and
+	 *               _mergeSocialNetworks() therefore keeps the stored value).
+	 *
+	 * Dolibarr stores the values since 11.0 in the socialnetworks json column of
+	 * llx_socpeople / llx_societe / llx_adherent ; the individual columns
+	 * (skype, linkedin, ...) were dropped in 15.0.
+	 */
+	protected static $socialnetworks_map = array(
+						'skype'		=> array('kind'=>'im',		'scheme'=>'skype',		'label'=>'Skype'),
+						'whatsapp'	=> array('kind'=>'im',		'scheme'=>'whatsapp',	'label'=>'WhatsApp'),
+						'linkedin'	=> array('kind'=>'social',	'scheme'=>null,			'label'=>null),
+						'twitter'	=> array('kind'=>'social',	'scheme'=>null,			'label'=>null),
+						'facebook'	=> array('kind'=>'social',	'scheme'=>null,			'label'=>null),
+						'instagram'	=> array('kind'=>'social',	'scheme'=>null,			'label'=>null),
+						'snapchat'	=> array('kind'=>'social',	'scheme'=>null,			'label'=>null),
+						'mastodon'	=> array('kind'=>'social',	'scheme'=>null,			'label'=>null),
+						'github'	=> array('kind'=>'social',	'scheme'=>null,			'label'=>null),
+						'youtube'	=> array('kind'=>'social',	'scheme'=>null,			'label'=>null),
+						);
+
+	/**
+	 * Spellings accepted on input for X-SOCIALPROFILE TYPE and IMPP X-SERVICE-TYPE
+	 * => Dolibarr dictionary code
+	 */
+	protected static $socialnetworks_alias = array(
+						'x'					=> 'twitter',	// twitter was renamed
+						'twitter.com'		=> 'twitter',
+						'x.com'				=> 'twitter',
+						'linked-in'			=> 'linkedin',
+						'skype-username'	=> 'skype',
+						);
+
+	/**
+	 * Url templates of the Dolibarr social networks dictionary
+	 * @var array|null code => url containing {socialid}
+	 */
+	protected $socialnetworks_urls = null;
+
+	/**
+	 * Read the url templates of the Dolibarr social networks dictionary.
+	 * Rows are not filtered on active : an inactive network is not offered in the
+	 * Dolibarr edit form but an already stored value is still displayed, so its
+	 * url template stays useful.
+	 *
+	 * @return array code => url containing {socialid}
+	 */
+	protected function _socialNetworkUrls()
+	{
+		if(!is_array($this->socialnetworks_urls))
+		{
+			$this->socialnetworks_urls = array();
+			$sql = "SELECT code, url FROM ".MAIN_DB_PREFIX."c_socialnetworks
+					WHERE entity IN (".getEntity('c_socialnetworks').")";
+			$result = $this->db->query($sql);
+			if($result!==false)
+			{
+				while(($row = $this->db->fetch_object($result))!==null)
+					$this->socialnetworks_urls[$row->code] = $row->url;
+			}
+		}
+		return $this->socialnetworks_urls;
+	}
+
+	/**
+	 * Resolve a service name (X-SOCIALPROFILE TYPE, IMPP X-SERVICE-TYPE or IMPP uri
+	 * scheme) to a Dolibarr dictionary code
+	 *
+	 * @param string|null $name service name as written by the client
+	 * @return string|false Dolibarr code, false if unknown to cdav
+	 */
+	protected function _socialNetworkCode($name)
+	{
+		$name = strtolower(trim((string) $name));
+		if($name==='')
+			return false;
+		if(isset(self::$socialnetworks_alias[$name]))
+			$name = self::$socialnetworks_alias[$name];
+		if(isset(self::$socialnetworks_map[$name]))
+			return $name;
+		foreach(self::$socialnetworks_map as $code => $def)
+		{
+			if(!empty($def['scheme']) && $def['scheme']===$name)
+				return $code;
+		}
+		return false;
+	}
+
+	/**
+	 * Quote a vCard parameter value when it holds a character that would end it
+	 * (RFC 2426 4.) : ':' ';' ','
+	 *
+	 * @param string $value parameter value
+	 * @return string
+	 */
+	protected function _quoteVCardParam($value)
+	{
+		$value = str_replace('"', '', $value);	// a quoted param value can not hold a double quote
+		if(strpbrk($value, ":;,")!==false)
+			return '"'.$value.'"';
+		return $value;
+	}
+
+	/**
+	 * Decode the socialnetworks json column of a Dolibarr row
+	 *
+	 * @param object $obj row holding a socialnetworks property
+	 * @return array indexed by Dolibarr socialnetworks codes
+	 */
+	protected function _decodeSocialNetworks($obj)
+	{
+		if(empty($obj->socialnetworks))
+			return array();
+		$networks = json_decode($obj->socialnetworks, true);
+		return is_array($networks) ? $networks : array();
+	}
+
+	/**
+	 * Build the vCard lines of the socialnetworks json column : IMPP for the chat
+	 * services, X-SOCIALPROFILE for the social profiles (see $socialnetworks_map)
+	 *
+	 * @param object $obj row holding a socialnetworks property
+	 * @return string
+	 */
+	protected function _socialNetworksToVCard($obj)
+	{
+		$carddata = '';
+		$networks = $this->_decodeSocialNetworks($obj);
+		$urls = $this->_socialNetworkUrls();
+		foreach($networks as $code => $val)
+		{
+			$code = strtolower($code);
+			if(empty($val) || !isset(self::$socialnetworks_map[$code]))
+				continue;
+			$def = self::$socialnetworks_map[$code];
+			if($def['kind']=='im')
+			{
+				$carddata.="IMPP;X-SERVICE-TYPE=".$def['label'].":".$def['scheme'].":".str_replace(';','\;',$val)."\n";
+				continue;
+			}
+			// the stored value may already be a full url, Dolibarr accepts both
+			if(preg_match('/^https?:\/\//i', $val))
+				$url = $val;
+			elseif(!empty($urls[$code]))
+				$url = str_replace('{socialid}', $this->_urlEncodeSocialId($val), $urls[$code]);
+			else
+				$url = 'x-apple:'.$this->_urlEncodeSocialId($val);
+			$carddata.="X-SOCIALPROFILE;TYPE=".$code.";X-USER=".$this->_quoteVCardParam($val).":".$url."\n";
+		}
+		return $carddata;
+	}
+
+	/**
+	 * Percent encode the characters that would make an url invalid, leaving '/' and
+	 * '@' alone so that a value like 'c/mychannel' still builds a working url.
+	 * Same substitution as dol_print_socialnetworks(), which does not encode either.
+	 *
+	 * @param string $value social network id as stored by Dolibarr
+	 * @return string
+	 */
+	protected function _urlEncodeSocialId($value)
+	{
+		return strtr($value, array(' '=>'%20', '"'=>'%22', '<'=>'%3C', '>'=>'%3E', '\\'=>'%5C', '^'=>'%5E', '`'=>'%60', '{'=>'%7B', '|'=>'%7C', '}'=>'%7D'));
+	}
+
+	/**
+	 * Read the X-USER parameter and the value of an X-SOCIALPROFILE property.
+	 *
+	 * iOS writes the parameter unquoted, so when the user pasted a full url in the
+	 * social profile field the ':' of 'https://' ends the parameter (RFC 2426 4.)
+	 * and any conforming parser truncates it :
+	 *   X-SOCIALPROFILE;type=linkedin;x-user=https://www.linkedin.com/in/jd:http://...
+	 *   => x-user='https'  value='//www.linkedin.com/in/jd:http://...'
+	 * Detected by a bare uri scheme in X-USER followed by a value starting with
+	 * '//', and put back together here.
+	 *
+	 * Nothing is percent decoded here : Apple writes the literal user input in
+	 * X-USER and only encodes the value, and a network id may legitimately hold
+	 * percent sequences (a LinkedIn slug is 's%C3%A9bastien-montusclat-6b97327b').
+	 * _normalizeSocialId() does the cleaning.
+	 *
+	 * @param object $prop X-SOCIALPROFILE property
+	 * @return array array(x-user, value)
+	 */
+	protected function _repairSocialProfile($prop)
+	{
+		$xuser = ($prop['X-USER']===null ? '' : (string) $prop['X-USER']);
+		$value = (string) $prop;
+		if($xuser!=='' && preg_match('/^[a-z][a-z0-9+.-]*$/i', $xuser) && substr($value,0,2)=='//')
+		{
+			$pos = strpos($value, ':');
+			if($pos===false)
+			{
+				$xuser .= ':'.$value;
+				$value = '';
+			}
+			else
+			{
+				$xuser .= ':'.substr($value, 0, $pos);
+				$value = substr($value, $pos+1);
+			}
+		}
+		return array(trim($xuser), trim($value));
+	}
+
+	/**
+	 * Reduce whatever a client sent to the bare network id Dolibarr expects.
+	 *
+	 * This is what keeps cdav and iOS from feeding each other : iOS rebuilds its own
+	 * url by prepending its template to the value it received, so if cdav stored that
+	 * url and sent it back, every edit added one more prefix :
+	 *   http://www.linkedin.com/in///www.linkedin.com/in///www.linkedin.com/<id>:https://...
+	 * The base url of the network (taken from the llx_c_socialnetworks template) is
+	 * therefore stripped as many times as it was prepended, then the url iOS appended
+	 * after a ':' is dropped, which makes the function idempotent and the exchange
+	 * stable however many round trips happen.
+	 *
+	 * Networks whose template is only {socialid} (mastodon, snapchat) have no fixed
+	 * base url : their value is a full url by design and is left untouched.
+	 *
+	 * @param string $code Dolibarr dictionary code
+	 * @param string $value value as sent by the client
+	 * @return string bare network id
+	 */
+	protected function _normalizeSocialId($code, $value)
+	{
+		// a double quote can only come from a badly parsed X-USER parameter
+		$value = trim(str_replace(array('%22', '"'), '', (string) $value));
+		$value = trim(str_replace('%20', ' ', $value));
+		if($value==='')
+			return '';
+
+		$urls = $this->_socialNetworkUrls();
+		if(empty($urls[$code]))
+			return $value;
+
+		// base url of the network, without the {socialid} placeholder
+		$base = preg_replace('/\/?\{socialid\}.*$/', '', $urls[$code]);
+		$base = preg_replace('#^https?://#i', '', $base);
+		$base = preg_replace('#^www\.#i', '', $base);
+		if($base==='' || strpos($base, '{')!==false)
+			return $value;	// template without a fixed base : value is a full url by design
+
+		$host = preg_replace('#/.*$#', '', $base);					// linkedin.com
+		$path = substr($base, strlen($host));						// /in
+		$pattern = '#^((https?:)?//)?(www\.)?'.preg_quote($host, '#')
+					.($path!=='' ? '('.preg_quote($path, '#').')?' : '').'/*#i';
+		do {
+			$before = $value;
+			$value = preg_replace($pattern, '', $value);
+		} while($value!==$before);
+
+		// a network id never holds a ':' : drop the url iOS appended after it, but keep
+		// a foreign url the user deliberately stored
+		if(!preg_match('#^[a-z][a-z0-9+.-]*://#i', $value) && ($pos = strpos($value, ':'))!==false)
+			$value = substr($value, 0, $pos);
+
+		return trim($value, " \t/");
+	}
+
+	/**
+	 * Read every shape a client may use to carry a social network, weakest first so
+	 * that the most explicit one wins :
+	 *   1. X-<NETWORK>          emitted by cdav before 3.3, kept for compatibility
+	 *   2. IMPP                 DAVx5/Android, iOS (Instant Message), CardBook
+	 *   3. X-SOCIALPROFILE      iOS (Social Profile)
+	 *
+	 * @param object $vCard parsed vCard
+	 * @return array indexed by Dolibarr socialnetworks codes
+	 */
+	protected function _socialNetworksFromVCard($vCard)
+	{
+		$networks = array();
+
+		// 1. legacy X-<NETWORK>
+		foreach(self::$socialnetworks_map as $code => $def)
+		{
+			$xname = 'X-'.strtoupper($code);
+			if(isset($vCard->{$xname}))
+				$networks[$code] = $this->_normalizeSocialId($code, (string) $vCard->{$xname});
+		}
+		if(!isset($networks['skype']) && isset($vCard->{'X-SKYPE-USERNAME'}))
+			$networks['skype'] = $this->_normalizeSocialId('skype', (string) $vCard->{'X-SKYPE-USERNAME'});
+
+		// 2. IMPP : the value is <scheme>:<handle>, the service may also be named
+		//    in X-SERVICE-TYPE (iOS)
+		if(isset($vCard->IMPP))
+		{
+			foreach($vCard->IMPP as $impp)
+			{
+				$value = trim((string) $impp);
+				$scheme = '';
+				if(($pos = strpos($value, ':'))!==false)
+				{
+					$scheme = substr($value, 0, $pos);
+					$value = substr($value, $pos+1);
+				}
+				$code = $this->_socialNetworkCode($impp['X-SERVICE-TYPE']);
+				if($code===false)
+					$code = $this->_socialNetworkCode($scheme);
+				$value = $this->_normalizeSocialId($code, $value);
+				if($code!==false && $value!=='')
+					$networks[$code] = $value;
+			}
+		}
+
+		// 3. X-SOCIALPROFILE
+		if(isset($vCard->{'X-SOCIALPROFILE'}))
+		{
+			foreach($vCard->{'X-SOCIALPROFILE'} as $prop)
+			{
+				$code = $this->_socialNetworkCode($prop['TYPE']);
+				if($code===false)
+					continue;	// unknown service, or iOS 'Customsocial'
+				list($xuser, $value) = $this->_repairSocialProfile($prop);
+				// x-user holds what the user typed, the value holds the url iOS built
+				$val = ($xuser!=='' ? $xuser : $value);
+				if(preg_match('/^x-apple:/i', $val))
+					continue;	// iOS placeholder for a service it does not know
+				$val = $this->_normalizeSocialId($code, $val);
+				if($val!=='')
+					$networks[$code] = $val;
+			}
+		}
+
+		return $networks;
+	}
+
+	/**
+	 * Merge the networks read from a vCard into those already stored and return the
+	 * json to write in the socialnetworks column. Networks unknown to cdav (set from
+	 * the Dolibarr UI) are preserved, since the whole set lives in a single column.
+	 * A network is only added or updated ; it is removed only when the client sends
+	 * the property with an empty value.
+	 *
+	 * @param array			$networks	networks read from the vCard
+	 * @param string|false	$table		table to read the current value from (false on create)
+	 * @param int			$rowid		record id
+	 * @return string
+	 */
+	protected function _mergeSocialNetworks($networks, $table=false, $rowid=0)
+	{
+		$current = array();
+		if($table!==false && $rowid>0)
+		{
+			$sql = "SELECT socialnetworks FROM ".MAIN_DB_PREFIX.$table." WHERE rowid = ".((int) $rowid);
+			$result = $this->db->query($sql);
+			if($result!==false && ($row = $this->db->fetch_object($result))!==null)
+				$current = $this->_decodeSocialNetworks($row);
+		}
+		foreach($networks as $code => $val)
+		{
+			if($val==='')
+				unset($current[$code]);
+			else
+				$current[$code] = $val;
+		}
+		return empty($current) ? '' : json_encode($current);
 	}
 
 	/**
@@ -374,10 +746,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			else
 				$carddata.="URL:".trim($obj->soc_url)."\n";
 		}
-		if(!empty($obj->jabberid))
-			$carddata.="X-JABBER:".str_replace(';','\;',$obj->jabberid)."\n";
-		if(!empty($obj->skype))
-			$carddata.="X-SKYPE:".str_replace(';','\;',$obj->skype)."\n";
+		$carddata.=$this->_socialNetworksToVCard($obj);
 		if(!empty($obj->birthday))
 			$carddata.="BDAY:".str_replace(';','\;',$obj->birthday)."\n";
 		if(!empty($obj->note_public))
@@ -519,6 +888,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			else
 				$carddata.="URL:".trim($obj->soc_url)."\n";
 		}
+		$carddata.=$this->_socialNetworksToVCard($obj);
 		if(!empty($obj->birth))
 			$carddata.="BDAY;VALUE=DATE:".str_replace(';','\;',date('Ymd',strtotime($obj->birth)))."\n";
 		if(!empty($obj->note_public))
@@ -642,16 +1012,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			if(strpos($obj->url,'://')===false)
 				$carddata.="URL:https://".trim($obj->url)."\n";
 		}
-		if(!empty($obj->whatsapp))
-			$carddata.="X-WHATSAPP:".str_replace(';','\;',$obj->whatsapp)."\n";
-		if(!empty($obj->snapchat))
-			$carddata.="X-SNAPCHAT:".str_replace(';','\;',$obj->snapchat)."\n";
-		if(!empty($obj->linkedin))
-			$carddata.="X-LINKEDIN:".str_replace(';','\;',$obj->linkedin)."\n";
-		if(!empty($obj->instagram))
-			$carddata.="X-INSTAGRAM:".str_replace(';','\;',$obj->instagram)."\n";
-		if(!empty($obj->skype))
-			$carddata.="X-SKYPE:".str_replace(';','\;',$obj->skype)."\n";
+		$carddata.=$this->_socialNetworksToVCard($obj);
 		$carddata.="NOTE;CHARSET=UTF-8:";
 		foreach($doliinfo as $info)
 			$carddata.=strtr(trim($info),array("\n"=>"\\n", "\r"=>""))."\\n";
@@ -790,13 +1151,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			}
 		}
 
-		if(isset($vCard->{'X-JABBER'}))
-			$rdata['jabberid'] = (string)$vCard->{'X-JABBER'};
-
-		if(isset($vCard->{'X-SKYPE'}))
-			$rdata['skype'] = (string)$vCard->{'X-SKYPE'};
-		elseif(isset($vCard->{'X-SKYPE-USERNAME'}))
-			$rdata['skype'] = (string)$vCard->{'X-SKYPE-USERNAME'};
+		$rdata['_socialnetworks'] = $this->_socialNetworksFromVCard($vCard);
 
 		$bday = '';
 		if( isset($vCard->BDAY))
@@ -946,6 +1301,8 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			date("Y-m-d", strtotime(trim($bday))) == trim($bday) )
 			$rdata['birth'] = trim($bday);
 
+		$rdata['_socialnetworks'] = $this->_socialNetworksFromVCard($vCard);
+
 		if(isset($vCard->NOTE))
 			$rdata['note_public'] = strtr(trim((string)$vCard->NOTE),"\\n", "\n");
 
@@ -1088,59 +1445,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			}
 		}
 
-		if(isset($vCard->{'X-WHATSAPP'}))
-			$rdata['whatsapp'] = (string)$vCard->{'X-WHATSAPP'};
-		if(isset($vCard->{'X-SNAPCHAT'}))
-			$rdata['snapchat'] = (string)$vCard->{'X-SNAPCHAT'};
-		if(isset($vCard->{'X-LINKEDIN'}))
-			$rdata['linkedin'] = (string)$vCard->{'X-LINKEDIN'};
-		if(isset($vCard->{'X-INSTAGRAM'}))
-			$rdata['instagram'] = (string)$vCard->{'X-INSTAGRAM'};
-		if(isset($vCard->{'X-SKYPE'}))
-			$rdata['skype'] = (string)$vCard->{'X-SKYPE'};
-		elseif(isset($vCard->{'X-SKYPE-USERNAME'}))
-			$rdata['skype'] = (string)$vCard->{'X-SKYPE-USERNAME'};
-
-		/**
-			IMPP;X-SERVICE-TYPE=GOOGLETALK:xmpp:goog
-			IMPP;X-SERVICE-TYPE=JABBER:xmpp:jabjab
-			IMPP;X-SERVICE-TYPE=YAHOO:ymsgr:yahoo
-			IMPP;X-SERVICE-TYPE=QQ:x-apple:qq
-			IMPP;X-SERVICE-TYPE=AIM:aim:aim
-			IMPP;X-SERVICE-TYPE=MSN:msnim:msn
-			IMPP;X-SERVICE-TYPE=SKYPE:skype:skyp
-			IMPP;X-SERVICE-TYPE=ICQ:aim:icqq
-			IMPP;X-SERVICE-TYPE=IRC:irc:irc
-		**/
-		if(isset($vCard->IMPP))
-		{
-			foreach($vCard->IMPP as $impp)
-			{
-				$type = strtoupper((string)$impp['X-SERVICE-TYPE']);
-				$pseudo = (string)$impp;
-				if(mb_strpos($pseudo,':',0,'UTF-8')!==false)
-					$pseudo = mb_substr($pseudo, mb_strpos($pseudo,':',0,'UTF-8')+1, null, 'UTF-8');
-
-				switch($type)
-				{
-					case "WHATSAPP":
-						$rdata['whatsapp'] = $pseudo;
-						break;
-					case "SNAPCHAT":
-						$rdata['snapchat'] = $pseudo;
-						break;
-					case "LINKEDIN":
-						$rdata['linkedin'] = $pseudo;
-						break;
-					case "INSTAGRAM":
-						$rdata['instagram'] = $pseudo;
-						break;
-					case "SKYPE":
-						$rdata['skype'] = $pseudo;
-						break;
-				}
-			}
-		}
+		$rdata['_socialnetworks'] = $this->_socialNetworksFromVCard($vCard);
 
 
 		if(isset($vCard->NOTE))
@@ -1496,6 +1801,9 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 					$rdata['photo'] = 'cdavimage.jpg';
 			}
 
+			if(!empty($rdata['_socialnetworks']))
+				$rdata['socialnetworks'] = $this->_mergeSocialNetworks($rdata['_socialnetworks']);
+
 			$sql = "INSERT INTO ".MAIN_DB_PREFIX."socpeople (";
 			foreach($rdata as $fld => $val)
 			{
@@ -1551,6 +1859,9 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			$rdata = $this->_parseDataThirdparty($cardData, 'C');
 
 
+			if(!empty($rdata['_socialnetworks']))
+				$rdata['socialnetworks'] = $this->_mergeSocialNetworks($rdata['_socialnetworks']);
+
 			$sql = "INSERT INTO ".MAIN_DB_PREFIX."societe (";
 			foreach($rdata as $fld => $val)
 			{
@@ -1590,6 +1901,9 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		{
 			$rdata = $this->_parseDataMember($cardData, 'C');
 
+
+			if(!empty($rdata['_socialnetworks']))
+				$rdata['socialnetworks'] = $this->_mergeSocialNetworks($rdata['_socialnetworks']);
 
 			$sql = "INSERT INTO ".MAIN_DB_PREFIX."adherent (";
 			foreach($rdata as $fld => $val)
@@ -1664,6 +1978,9 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 					$rdata['photo'] = 'cdavimage.jpg';
 			}
 
+			if(!empty($rdata['_socialnetworks']))
+				$rdata['socialnetworks'] = $this->_mergeSocialNetworks($rdata['_socialnetworks'], 'socpeople', $contactid);
+
 			$sql = "UPDATE ".MAIN_DB_PREFIX."socpeople SET ";
 			foreach($rdata as $fld => $val)
 			{
@@ -1674,8 +1991,6 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			$sql.= " WHERE rowid = ".$contactid;
 			$sql.= " AND entity IN (".getEntity('socpeople', 1).")";
 			$res = $this->db->query($sql);
-
-			$this->db->query($sql);
 
 			// save photo with jpeg format
 			if(isset($rdata['photo']))
@@ -1700,6 +2015,9 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			else
 				return false;
 
+			if(!empty($rdata['_socialnetworks']))
+				$rdata['socialnetworks'] = $this->_mergeSocialNetworks($rdata['_socialnetworks'], 'societe', $socid);
+
 			$sql = "UPDATE ".MAIN_DB_PREFIX."societe SET ";
 			foreach($rdata as $fld => $val)
 			{
@@ -1710,7 +2028,6 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			$sql.= " WHERE rowid = ".$socid;
 			$sql.= " AND entity IN (".getEntity('societe', 1).")";
 			$res = $this->db->query($sql);
-			$this->db->query($sql);
 		}
 
 		if(CDAV_MEMBER_SYNC>0 && intval($addressbookId)>=(2*CDAV_ADDRESSBOOK_ID_SHIFT) && intval($addressbookId)<(3*CDAV_ADDRESSBOOK_ID_SHIFT) && $this->user->hasRight('adherent','creer'))
@@ -1722,6 +2039,9 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			else
 				return false;
 
+			if(!empty($rdata['_socialnetworks']))
+				$rdata['socialnetworks'] = $this->_mergeSocialNetworks($rdata['_socialnetworks'], 'adherent', $adhid);
+
 			$sql = "UPDATE ".MAIN_DB_PREFIX."adherent SET ";
 			foreach($rdata as $fld => $val)
 			{
@@ -1732,7 +2052,6 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			$sql.= " WHERE rowid = ".$adhid;
 			$sql.= " AND entity IN (".getEntity('adherent', 1).")";
 			$res = $this->db->query($sql);
-			$this->db->query($sql);
 		}
 
 		return null;

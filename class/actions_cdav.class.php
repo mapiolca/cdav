@@ -217,7 +217,7 @@ class ActionsCDav
 				$db->free($querydet);
 			}
 			$db->free($query);
-			$sql = "SELECT fk_socpeople FROM llx_element_contact WHERE fk_c_type_contact = " . intval($CDAV_PROJ_USER_ROLE) . " AND element_id = " . intval($object->id);
+			$sql = "SELECT fk_socpeople FROM ".MAIN_DB_PREFIX."element_contact WHERE fk_c_type_contact = " . intval($CDAV_PROJ_USER_ROLE) . " AND element_id = " . intval($object->id);
 			$querydet = $db->query($sql);
 			if ($querydet && ($row = $db->fetch_object($querydet)) !== null)
 				$task_user = $row->fk_socpeople;

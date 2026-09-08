@@ -2,7 +2,7 @@
 
 ## What is it ?
 
-This module for Dolibarr 16.0/23.0 adds CardDAV / CalDAV and ICS synchronisation. It uses Dolibarr [Sabre/DAV](http://sabre.io/dav/) server library.
+This module for Dolibarr 16.0/24.0 adds CardDAV / CalDAV and ICS synchronisation. It uses Dolibarr [Sabre/DAV](http://sabre.io/dav/) server library.
 
 You can :
 
@@ -122,10 +122,11 @@ Admin users can also access Dolibarr documents through WebDAV with WebDAV URL :
 
     https://server.example.com/dolibarr/htdocs/cdav/server.php/documents/
 
-### Multicompany
+### Multicompany module compatibility
 
-HTTP Basic authentication gives no way to choose an entity, so cdav reads it from the URL:
-add the entity number as the first path segment, right after `server.php`:
+When the [Multi-Company module](https://www.dolistore.com/product.php?id=1619) is enabled,
+CDav reads the entity (the company index) from the URL as the first path segment,
+right after `server.php`:
 
     https://server.example.com/dolibarr/htdocs/cdav/server.php/2/principals/<connected-user-login>/
     https://server.example.com/dolibarr/htdocs/cdav/server.php/2/calendars/<connected-user-login>/<calendar-user-id>-cal-<calendar-user-login>
@@ -136,8 +137,8 @@ The ICS export takes the entity as a plain url parameter instead:
     https://server.example.com/dolibarr/htdocs/cdav/ics.php?entity=2&token=<token>
 
 When the entity is missing, entity 1 is used: URLs already configured in your clients keep
-working unchanged. The DAV / ICS URLs pages of the module display the URLs of the entity
-you are logged in.
+working unchanged for entity 1. The DAV / ICS URLs pages of the module display the URLs of
+the entity you are logged in.
 
 ## Troubleshooting
 
