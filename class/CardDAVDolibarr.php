@@ -358,7 +358,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		if(!empty($obj->phone_perso))
 			$carddata.="TEL;TYPE=HOME,VOICE:".str_replace(';','\;',$obj->phone_perso)."\n";
 		if(!empty($obj->phone_mobile))
-			$carddata.="TEL;TYPE=CELL,VOICE:".str_replace(';','\;',$obj->phone_mobile)."\n";
+			$carddata.="TEL;TYPE=CELL:".str_replace(';','\;',$obj->phone_mobile)."\n";
 		if(!empty($obj->soc_fax))
 			$carddata.="TEL;TYPE=WORK,FAX:".str_replace(';','\;',$obj->soc_fax)."\n";
 		if(!empty($obj->fax))
@@ -505,7 +505,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		if(!empty($obj->phone_perso))
 			$carddata.="TEL;TYPE=HOME,VOICE:".str_replace(';','\;',$obj->phone_perso)."\n";
 		if(!empty($obj->phone_mobile))
-			$carddata.="TEL;TYPE=CELL,VOICE:".str_replace(';','\;',$obj->phone_mobile)."\n";
+			$carddata.="TEL;TYPE=CELL:".str_replace(';','\;',$obj->phone_mobile)."\n";
 		if(!empty($obj->soc_fax))
 			$carddata.="TEL;TYPE=WORK,FAX:".str_replace(';','\;',$obj->soc_fax)."\n";
 		if(!empty($obj->email))
@@ -632,7 +632,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		$carddata.=	 str_replace(';','\;',$obj->town).";;".str_replace(';','\;',$obj->zip).";".str_replace(';','\;',$obj->country_label)."\n";
 		$carddata.="TEL;TYPE=WORK,VOICE:".str_replace(';','\;',$obj->phone)."\n";
 		if(!empty($obj->phone_mobile))
-			$carddata.="TEL;TYPE=CELL,VOICE:".str_replace(';','\;',$obj->phone_mobile)."\n";
+			$carddata.="TEL;TYPE=CELL:".str_replace(';','\;',$obj->phone_mobile)."\n";
 		if(!empty($obj->fax))
 			$carddata.="TEL;TYPE=WORK,FAX:".str_replace(';','\;',$obj->fax)."\n";
 		if(!empty($obj->email))
