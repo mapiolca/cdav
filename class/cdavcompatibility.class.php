@@ -1,0 +1,49 @@
+<?php
+/* Copyright (C) 2026 Pierre Ardoin <developpeur@lesmetiersdubatiment.fr>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/** Runtime prerequisites. Permissions are deliberately checked by callers. */
+class CDavCompatibility
+{
+	/** @return array<string, array{label: string, available: bool, reason: string}> */
+	public static function getFeatures()
+	{
+		global $conf;
+		$runtime = version_compare(PHP_VERSION, '8.0.0', '>=') && version_compare(DOL_VERSION, '16.0.0', '>=');
+		$sabre = is_readable(DOL_DOCUMENT_ROOT.'/includes/sabre/autoload.php');
+		$extensions = true;
+		foreach (array('dom', 'simplexml', 'mbstring', 'ctype', 'date', 'iconv', 'json', 'xml', 'xmlwriter') as $extension) {
+			$extensions = $extensions && extension_loaded($extension);
+		}
+		$base = $runtime && $sabre && $extensions && isModEnabled('cdav');
+		$directories = isset($conf->cdav->multidir_output) && is_array($conf->cdav->multidir_output)
+			&& isset($conf->cdav->multidir_output[(int) $conf->entity])
+			&& is_string($conf->cdav->multidir_output[(int) $conf->entity])
+			&& trim($conf->cdav->multidir_output[(int) $conf->entity]) !== ''
+			&& strpos($conf->cdav->multidir_output[(int) $conf->entity], 'error-') !== 0;
+		return array(
+			'runtime' => array('label' => 'CDavRuntime', 'available' => $runtime, 'reason' => 'CDavRequiresRuntime'),
+			'sabre' => array('label' => 'CDavSabre', 'available' => $sabre, 'reason' => 'CDavRequiresSabre'),
+			'extensions' => array('label' => 'CDavExtensions', 'available' => $extensions, 'reason' => 'CDavRequiresExtensions'),
+			'dav' => array('label' => 'CDavDAV', 'available' => $base, 'reason' => 'CDavRequiresDAV'),
+			'carddav' => array('label' => 'CardDAV', 'available' => $base && isModEnabled('societe'), 'reason' => 'CDavRequiresThirdparties'),
+			'members' => array('label' => 'CDavMembers', 'available' => $base && isModEnabled('adherent') && getDolGlobalInt('CDAV_MEMBER_SYNC') > 0, 'reason' => 'CDavRequiresMembers'),
+			'caldav' => array('label' => 'CalDAV', 'available' => $base && isModEnabled('agenda'), 'reason' => 'CDavRequiresAgenda'),
+			'tasks' => array('label' => 'CDavTasks', 'available' => $base && isModEnabled('agenda') && isModEnabled('project') && !getDolGlobalInt('PROJECT_HIDE_TASKS') && getDolGlobalInt('CDAV_TASK_SYNC') > 0, 'reason' => 'CDavRequiresTasks'),
+			'interventions' => array('label' => 'CDavInterventions', 'available' => $base && isModEnabled('agenda') && isModEnabled('ficheinter') && getDolGlobalInt('CDAV_INTERV_SYNC') > 0, 'reason' => 'CDavRequiresInterventions'),
+			'gentask' => array('label' => 'CDavGenerateTasks', 'available' => $runtime && isModEnabled('cdav') && isModEnabled('project') && isModEnabled('service') && getDolGlobalInt('CDAV_GENTASK') > 0, 'reason' => 'CDavRequiresGeneration'),
+			'photos' => array('label' => 'CDavPhotos', 'available' => $base && extension_loaded('gd'), 'reason' => 'CDavRequiresGD'),
+			'ics' => array('label' => 'ICS', 'available' => $base && isModEnabled('agenda') && extension_loaded('openssl') && getDolGlobalString('CDAV_URI_KEY') !== '', 'reason' => 'CDavRequiresICS'),
+			'directories' => array('label' => 'CDavDirectories', 'available' => $directories, 'reason' => 'CDavRequiresDirectories'),
+			'qrcode' => array('label' => 'CDavQRCode', 'available' => $base && extension_loaded('gd') && is_readable(DOL_DOCUMENT_ROOT.'/core/modules/barcode/doc/tcpdfbarcode.modules.php'), 'reason' => 'CDavRequiresQRCode'),
+		);
+	}
+
+	/** @param string $feature Capability code. @return bool */
+	public static function isFeatureAvailable($feature)
+	{
+		$features = self::getFeatures();
+		return isset($features[$feature]) && $features[$feature]['available'];
+	}
+}
