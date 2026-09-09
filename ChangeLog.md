@@ -2,7 +2,7 @@
 
 ## 3.3 — Non publiée
 
-- Réglages répartis dans cinq onglets natifs : Réglages, CardDAV, CalDAV, Compatibilité et À propos ; sauvegarde limitée à l’onglet et à l’entité, avec validation des références.
+- Réglages répartis dans cinq onglets natifs : Réglages, CardDAV, CalDAV, Compatibilité et À propos ; sauvegarde limitée à l’onglet et à l’entité, avec validation des références. L’aide de connexion et les informations et avertissements de compatibilité restent visibles dans des notifications natives persistantes.
 - Catalogues anglais, français, allemand, espagnol et italien ; métadonnées affichées depuis le descripteur, identité CDav et crédits Befox conservés.
 - Connexion DAV stateless fixée sur l’entité de l’URL avant chargement ; authentification native et contrôle séparé de l’admission Multicompany, découverte des affectations transverses et droits réels des liens ICS.
 - Montage WebDAV administratif limité aux répertoires configurés des modules natifs, avec contrôles de droits et de chemins ; les répertoires d’autres entités et les liens symboliques ne sont plus parcourus.

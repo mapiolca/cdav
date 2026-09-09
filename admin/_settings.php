@@ -49,8 +49,9 @@ foreach ($settings as $key => $definition) {
 }
 print '<div class="div-table-responsive-no-min">'.$formSetup->generateOutput(true).'</div>';
 if ($cdavAdminTab === 'setup') {
-	print '<p>'.$langs->trans('CDavClientSetupHelp').'</p>';
-	print '<p><a href="'.dol_buildpath('/cdav/cdavurls.php?type=CardDAV', 1).'">'.$langs->trans('CardDAVurl').'</a> · <a href="'.dol_buildpath('/cdav/cdavurls.php?type=CalDAV', 1).'">'.$langs->trans('CalDAVurl').'</a></p>';
+	$clientSetupMessage = $langs->trans('CDavClientSetupHelp');
+	$clientSetupMessage .= '<br><br><a href="'.dol_buildpath('/cdav/cdavurls.php?type=CardDAV', 1).'">'.$langs->trans('CardDAVurl').'</a> · <a href="'.dol_buildpath('/cdav/cdavurls.php?type=CalDAV', 1).'">'.$langs->trans('CalDAVurl').'</a>';
+	print get_htmloutput_mesg($clientSetupMessage, array(), 'info', 1);
 }
 print dol_get_fiche_end();
 llxFooter();

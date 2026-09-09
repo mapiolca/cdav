@@ -19,10 +19,11 @@ foreach (CDavCompatibility::getFeatures() as $feature) {
 	print '<td>Dolibarr '.dol_escape_htmltag($feature['core_versions']).'<br>'.$langs->trans('CDavMinimum').': '.dol_escape_htmltag($feature['min_dolibarr']).' / PHP '.dol_escape_htmltag($feature['min_php']).'</td></tr>';
 }
 print '</table></div><br>';
-print '<p>'.$langs->trans('CDavVersionPolicy').'</p>';
-print '<p>'.$langs->trans('CDavManualChecks').'</p>';
-print '<p>'.$langs->trans('CDavMulticompanyChecks').'</p>';
-print '<p>'.$langs->trans('CDavTransverseMode').': '.$langs->trans(isModEnabled('multicompany') && getDolGlobalInt('MULTICOMPANY_TRANSVERSE_MODE') ? 'Yes' : 'No').'</p>';
+// Keep diagnostics embedded in the page, independently of the notification timeout.
+print get_htmloutput_mesg($langs->trans('CDavVersionPolicy'), array(), 'info', 1);
+print get_htmloutput_mesg($langs->trans('CDavManualChecks'), array(), 'warning', 1);
+print get_htmloutput_mesg($langs->trans('CDavMulticompanyChecks'), array(), 'warning', 1);
+print get_htmloutput_mesg($langs->trans('CDavTransverseMode').': '.$langs->trans(isModEnabled('multicompany') && getDolGlobalInt('MULTICOMPANY_TRANSVERSE_MODE') ? 'Yes' : 'No'), array(), 'info', 1);
 print dol_get_fiche_end();
 llxFooter();
 $db->close();
