@@ -25,9 +25,10 @@ print '<table class="noborder centpercent"><tr class="liste_titre"><th>'.$langs-
 foreach (array('CDavSource' => $moduleDescriptor->maintainer_url, 'CDavEditor' => $moduleDescriptor->editor_url, 'Documentation' => dol_buildpath('/cdav/README.md', 1)) as $label => $url) {
 	print '<tr class="oddeven"><td><a target="_blank" rel="noopener noreferrer" href="'.dol_escape_htmltag($url).'">'.$langs->trans($label).'</a></td></tr>';
 }
-print '</table></div></div></div><br>';
-print '<p>'.$langs->trans('CDavAboutFeatures').'</p>';
-print '<p><a href="'.dol_buildpath('/cdav/admin/compatibility.php', 1).'">'.$langs->trans('CDavAboutDependencies').'</a></p>';
+print '</table></div></div><div class="clearboth"></div></div><br>';
+$aboutMessage = $langs->trans('CDavAboutFeatures');
+$aboutMessage .= '<br><br><a href="'.dol_buildpath('/cdav/admin/compatibility.php', 1).'">'.$langs->trans('CDavAboutDependencies').'</a>';
+print get_htmloutput_mesg($aboutMessage, array(), 'info', 1);
 print dol_get_fiche_end();
 llxFooter();
 $db->close();
