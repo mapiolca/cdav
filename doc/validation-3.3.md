@@ -33,6 +33,15 @@ L’ancien Sabre fourni par Dolibarr 16 émet sous PHP 8.4 un avertissement `con
 
 PHPStan n’a pas été exécuté : aucun binaire ni configuration PHPStan propre au module n’est disponible. Aucun baseline ni règle d’ignorance n’a été ajouté.
 
+## Exécution GitHub Actions
+
+Le [run 34344876859](https://github.com/mapiolca/cdav/actions/runs/34344876859), exécuté le 2026-09-09 sur le commit `a818c26f9acedd831dd0cae36ef64c8e8d36a3ed`, a terminé avec succès dans les deux environnements :
+
+- Dolibarr 16.0.0 / PHP 8.0 ;
+- Dolibarr 24.0.0 / PHP 8.4.
+
+Chaque job exécute le lint, la parité des cinq langues et la suite ciblée ci-dessus avec les bibliothèques Sabre et le bloc CSRF du tag correspondant. Les services ERP, objets métier, droits et sessions restent simulés. Cette exécution vérifie notamment la syntaxe et le comportement testé sous PHP 8.0 ; elle ne constitue pas une installation Dolibarr ou une validation Multicompany.
+
 ## Validations réelles encore nécessaires
 
 Les scénarios suivants sont préparés mais **non exécutés** : aucune instance ERP avec base et aucun module Multicompany utilisable ne sont disponibles. Le navigateur n’a donc pas validé le nouveau code servi. Les contrôles de sources ou les simulations ci-dessus ne remplacent pas cette recette.
