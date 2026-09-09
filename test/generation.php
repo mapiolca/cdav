@@ -72,4 +72,6 @@ checkGeneration(CDavTaskGeneration::endDate(100, '0h', 0, 19) === 100, 'Zero dur
 checkGeneration(CDavTaskGeneration::endDate(100, '30min', 7, 19) === 1900, 'Minutes');
 checkGeneration(CDavTaskGeneration::endDate(100, '2d', 7, 19) === 100 + 86400 + 12 * 3600, 'Working day span');
 try { CDavTaskGeneration::endDate(100, 'invalid', 7, 19); throw new LogicException('Invalid duration accepted'); } catch (RuntimeException $error) { $checks++; }
+$user->allow = true; $values['CDAV_TASK_HOUR_INI'] = ''; $values['CDAV_TASK_HOUR_END'] = '';
+checkGeneration($generator->generate($project, $user) === 3 && (int) date('H', Task::$saved[0]->date_start) === 7, 'Empty hours retain historical working-day defaults');
 echo "$checks generation checks passed (simulated).\n";

@@ -1,6 +1,6 @@
 <?php
 require __DIR__.'/../lib/cdav_request.lib.php';
-$valid = array('' => array(1, ''), '/calendars/a' => array(1, ''), '/2/calendars/a' => array(2, '/2'), '/1/addressbooks' => array(1, '/1'));
+$valid = array('/erp-documents/a.pdf' => array(1, ''), '' => array(1, ''), '/calendars/a' => array(1, ''), '/2/calendars/a' => array(2, '/2'), '/1/addressbooks' => array(1, '/1'));
 foreach ($valid as $path => $expected) {
 	$result = cdavParseDavRoute(array('PATH_INFO' => $path));
 	if (array_values($result) !== $expected) throw new RuntimeException($path);
@@ -11,4 +11,4 @@ foreach (array('/0/calendars', '/-1', '/2x', '/02', '/999999999999', '/%32/calen
 }
 $result = cdavParseDavRoute(array('SCRIPT_NAME' => '/custom/cdav/server.php', 'REQUEST_URI' => '/custom/cdav/server.php/2/calendars?entity=7'));
 if ($result['entity'] !== 2) throw new RuntimeException('Query override');
-echo "11 routing checks passed.\n";
+echo "12 routing checks passed.\n";

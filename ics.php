@@ -39,6 +39,12 @@ if (!is_string($icsEntity) || !preg_match('/^[1-9][0-9]{0,8}$/D', $icsEntity)) {
 	exit;
 }
 define('DOLENTITY', (int) $icsEntity);
+// This endpoint is not a login page; prevent native bootstrap entity overrides.
+if (isset($_GET['loginfunction']) || isset($_POST['loginfunction'])
+	|| (session_id() !== '' && !empty($_SESSION['dol_entity'])) || !empty($_ENV['dol_entity'])) {
+	http_response_code(400);
+	exit;
+}
 
 // Load Dolibarr environment
 $res = 0;
@@ -110,7 +116,7 @@ $arrTmp = is_string($payload) ? explode('+ø+', $payload) : array();
 // Also accept the historical double-encoded separator from older installations.
 if (count($arrTmp) !== 2 && is_string($payload)) $arrTmp = explode('+Ã¸+', $payload);
 
-if (! isset($arrTmp[1]) || ! in_array(trim($arrTmp[1]), array('nolabel', 'full')))
+if (count($arrTmp) !== 2 || !in_array(trim($arrTmp[1]), array('nolabel', 'full'), true))
 {
 	http_response_code(403);
 	exit;
@@ -128,11 +134,12 @@ if (!$resql || !is_object($db->fetch_object($resql)) || $user->fetch($id) <= 0) 
 	http_response_code(403);
 	exit;
 }
-if (isModEnabled('multicompany') && (!isset($mc) || !is_object($mc) || !method_exists($mc, 'checkRight') || $mc->checkRight((int) $user->id, (int) $conf->entity) < 0)) {
-	http_response_code(403);
-	exit;
+if (isModEnabled('multicompany')) {
+	$admission = isset($mc) && is_object($mc) && method_exists($mc, 'checkRight') ? $mc->checkRight((int) $user->id, (int) $conf->entity) : null;
+	if (!is_int($admission) || $admission < 0) { http_response_code(403); exit; }
 }
-$user->getrights('', 1);
+if (version_compare(DOL_VERSION, '20.0.0', '>=')) $user->loadRights('', 1);
+else $user->getrights('', 1);
 if (!$user->hasRight('agenda', 'myactions', 'read')) {
 	http_response_code(403);
 	exit;

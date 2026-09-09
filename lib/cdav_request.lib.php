@@ -19,7 +19,8 @@ function cdavParseDavRoute(array $server)
 		}
 	}
 	$first = explode('/', ltrim($path, '/'), 2)[0];
-	if ($first === '' || in_array($first, array('principals', 'calendars', 'addressbooks', 'public', 'documents'), true)) {
+	// Historical document collection names follow basename(DOL_DATA_ROOT).
+	if ($first === '' || preg_match('/^[a-zA-Z_][a-zA-Z0-9_.-]*$/D', $first)) {
 		return array('entity' => 1, 'segment' => '');
 	}
 	if (!preg_match('/^[1-9][0-9]{0,8}$/D', $first)) {

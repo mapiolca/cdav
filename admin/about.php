@@ -11,9 +11,11 @@ $metadata = array(
 	'Version' => $moduleDescriptor->version,
 	'CDavEditor' => $moduleDescriptor->editor_name,
 	'CDavMaintainer' => $moduleDescriptor->maintainer_name,
-	'Description' => $langs->trans('Module562387Desc'),
+	'Description' => $langs->trans($moduleDescriptor->description),
 	'CDavMinimum' => 'Dolibarr '.implode('.', $moduleDescriptor->need_dolibarr_version).' / PHP '.implode('.', $moduleDescriptor->phpmin),
 	'License' => $moduleDescriptor->license,
+	'CDavRequiredModules' => $moduleDescriptor->depends ? implode(', ', $moduleDescriptor->depends) : $langs->trans('None'),
+	'CDavRequiredBy' => $moduleDescriptor->requiredby ? implode(', ', $moduleDescriptor->requiredby) : $langs->trans('None'),
 );
 foreach ($metadata as $label => $value) {
 	print '<tr class="oddeven"><td class="titlefield">'.$langs->trans($label).'</td><td>'.dol_escape_htmltag($value).'</td></tr>';

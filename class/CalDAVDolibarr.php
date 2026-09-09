@@ -470,6 +470,12 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 			}
 		}
 		if (!$existing && preg_match('/^[1-9][0-9]*-(ev|pe|pt|fi)-/', $objectUri)) throw new \Sabre\DAV\Exception\NotFound();
+		if ($existing) {
+			$stored = VObject\Reader::read($existing['calendardata']);
+			foreach ($stored->getComponents() as $component) {
+				if (isset($component->UID) && (string) $component->UID !== $data['uid']) throw new \Sabre\DAV\Exception\Conflict('UID cannot be changed');
+			}
+		}
 		return $this->persistCalendarObject((int) $calendarId, $objectUri, $data, $existing, true);
 	}
 

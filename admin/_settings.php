@@ -17,7 +17,10 @@ foreach ($settings as $key => $definition) {
 	}
 	if ($definition['type'] === 'bool') {
 		// Native Ajax switches persist only their own constant in the current entity.
-		$item->fieldInputOverride = ajax_constantonoff($key, array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1);
+		// v16 prints the non-Ajax link instead of returning it. Keep it in the row.
+		ob_start();
+		$switch = ajax_constantonoff($key, array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1);
+		$item->fieldInputOverride = ob_get_clean().$switch;
 	} elseif ($definition['type'] === 'select') {
 		$options = array();
 		foreach ($definition['choices'] as $choice) {
@@ -45,6 +48,10 @@ foreach ($settings as $key => $definition) {
 	}
 }
 print '<div class="div-table-responsive-no-min">'.$formSetup->generateOutput(true).'</div>';
+if ($cdavAdminTab === 'setup') {
+	print '<p>'.$langs->trans('CDavClientSetupHelp').'</p>';
+	print '<p><a href="'.dol_buildpath('/cdav/cdavurls.php?type=carddav', 1).'">'.$langs->trans('CardDAVurl').'</a> · <a href="'.dol_buildpath('/cdav/cdavurls.php?type=caldav', 1).'">'.$langs->trans('CalDAVurl').'</a></p>';
+}
 print dol_get_fiche_end();
 llxFooter();
 $db->close();

@@ -71,13 +71,13 @@ class CdavLib
 		{
 			$sql.=' LEFT OUTER JOIN '.MAIN_DB_PREFIX.'societe_commerciaux AS sc ON (a.fk_soc = sc.fk_soc AND sc.fk_user='.$this->user->id.')
 					LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON (s.rowid = sc.fk_soc AND s.entity IN ('.getEntity('societe').') AND '.($this->user->hasRight('societe', 'lire') ? '1' : '0').')
-					LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.fk_soc = sc.fk_soc AND sp.rowid = a.fk_contact AND sp.entity IN ('.getEntity('socpeople').') AND '.($this->user->hasRight('societe', 'contact', 'lire') ? '1' : '0').')
+					LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.fk_soc = sc.fk_soc AND sp.rowid = a.fk_contact AND sp.entity IN ('.getEntity('socpeople').') AND (sp.priv=0 OR sp.fk_user_creat='.(int) $this->user->id.') AND '.($this->user->hasRight('societe', 'contact', 'lire') ? '1' : '0').')
 					LEFT JOIN '.MAIN_DB_PREFIX.'actioncomm_cdav AS ac ON (a.id = ac.fk_object)';
 		}
 		else
 		{
 			$sql.=' LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON (s.rowid = a.fk_soc AND s.entity IN ('.getEntity('societe').') AND '.($this->user->hasRight('societe', 'lire') ? '1' : '0').')
-					LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.rowid = a.fk_contact AND sp.entity IN ('.getEntity('socpeople').') AND '.($this->user->hasRight('societe', 'contact', 'lire') ? '1' : '0').')
+					LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.rowid = a.fk_contact AND sp.entity IN ('.getEntity('socpeople').') AND (sp.priv=0 OR sp.fk_user_creat='.(int) $this->user->id.') AND '.($this->user->hasRight('societe', 'contact', 'lire') ? '1' : '0').')
 					LEFT JOIN '.MAIN_DB_PREFIX.'actioncomm_cdav AS ac ON (a.id = ac.fk_object)';
 		}
 
@@ -148,7 +148,7 @@ class CdavLib
 						WHERE gec.element_id=pt.rowid AND gtc.element="project_task" AND u.login IS NOT NULL) AS other_users,
 					(SELECT GROUP_CONCAT(sp.firstname, " ", sp.lastname) FROM '.MAIN_DB_PREFIX.'element_contact gec
 						LEFT JOIN '.MAIN_DB_PREFIX.'c_type_contact as gtc ON (gtc.rowid=gec.fk_c_type_contact AND gtc.element="project_task" AND gtc.source="external")
-						LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.rowid=gec.fk_socpeople AND sp.entity IN ('.getEntity('socpeople').') AND '.($this->user->hasRight('societe', 'contact', 'lire') ? '1' : '0').')
+						LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.rowid=gec.fk_socpeople AND sp.entity IN ('.getEntity('socpeople').') AND (sp.priv=0 OR sp.fk_user_creat='.(int) $this->user->id.') AND '.($this->user->hasRight('societe', 'contact', 'lire') ? '1' : '0').')
 						WHERE gec.element_id=pt.rowid AND gtc.element="project_task" AND sp.lastname IS NOT NULL) AS other_contacts
 				FROM '.MAIN_DB_PREFIX.'projet_task AS pt
 				LEFT JOIN '.MAIN_DB_PREFIX.'projet AS p ON (p.rowid = pt.fk_projet)
@@ -227,7 +227,7 @@ class CdavLib
 						WHERE gec.element_id=fi.rowid AND gtc.element="fichinter" AND u.login IS NOT NULL) AS other_users,
 					(SELECT GROUP_CONCAT(sp.firstname, " ", sp.lastname) FROM '.MAIN_DB_PREFIX.'element_contact gec
 						LEFT JOIN '.MAIN_DB_PREFIX.'c_type_contact as gtc ON (gtc.rowid=gec.fk_c_type_contact AND gtc.element="fichinter" AND gtc.source="external")
-						LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.rowid=gec.fk_socpeople AND sp.entity IN ('.getEntity('socpeople').') AND '.($this->user->hasRight('societe', 'contact', 'lire') ? '1' : '0').')
+						LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.rowid=gec.fk_socpeople AND sp.entity IN ('.getEntity('socpeople').') AND (sp.priv=0 OR sp.fk_user_creat='.(int) $this->user->id.') AND '.($this->user->hasRight('societe', 'contact', 'lire') ? '1' : '0').')
 						WHERE gec.element_id=fi.rowid AND gtc.element="fichinter" AND sp.lastname IS NOT NULL) AS other_contacts
 				FROM '.MAIN_DB_PREFIX.'fichinter AS fi
 				INNER JOIN '.MAIN_DB_PREFIX.'fichinterdet AS fid ON fid.fk_fichinter = fi.rowid
@@ -260,304 +260,80 @@ class CdavLib
 	 */
 	public function toVCalendar($calid, $obj, $bHeader)
 	{
-	   if($obj->elem_source=='ev')		// Calendar Event
-	   {
-			$categ = [];
-			/*if($obj->soc_client)
-			{
-				$nick[] = $obj->soc_code_client;
-				$categ[] = $this->langs->transnoentitiesnoconv('Customer');
-			}*/
-
-			$location=trim(str_replace(array("\r","\t","\n"),' ',$obj->location));
-
-			// contact address
-			if(empty($location) && !empty($obj->address))
-			{
-				$location = trim(str_replace(array("\r","\t","\n"),' ', $obj->address));
-				$location = trim($location.', '.$obj->zip);
-				$location = trim($location.' '.$obj->town);
-				$location = trim($location.', '.$obj->country_label);
-			}
-
-			// contact address
-			if(empty($location) && !empty($obj->soc_address))
-			{
-				$location = trim(str_replace(array("\r","\t","\n"),' ', $obj->soc_address));
-				$location = trim($location.', '.$obj->soc_zip);
-				$location = trim($location.' '.$obj->soc_town);
-				$location = trim($location.', '.$obj->soc_country_label);
-			}
-
-			$address=explode("\n",$obj->address,2);
-			foreach($address as $kAddr => $vAddr)
-			{
-				$address[$kAddr] = trim(str_replace(array("\r","\t"),' ', str_replace("\n",' | ', trim($vAddr))));
-			}
-			$address[]='';
-			$address[]='';
-
-			if($obj->percent==-1 && trim($obj->datep)!='')
-				$type='VEVENT';
-			else
-				$type='VTODO';
-
-			$timezone = date_default_timezone_get();
-
-			$caldata ="";
-			if($bHeader)
-			{
-				$caldata ="BEGIN:VCALENDAR\n";
-				$caldata.="VERSION:2.0\n";
-				$caldata.="PRODID:-//Dolibarr CDav//FR\n";
-			}
-			$caldata.="BEGIN:".$type."\n";
-			$caldata.="CREATED:".gmdate('Ymd\THis', strtotime($obj->datec))."Z\n";
-			$caldata.="LAST-MODIFIED:".gmdate('Ymd\THis', strtotime($obj->lastupd))."Z\n";
-			$caldata.="DTSTAMP:".gmdate('Ymd\THis', strtotime($obj->lastupd))."Z\n";
-			if($obj->sourceuid=='')
-				$caldata.="UID:".$obj->id.'-ev-'./*$calid.'-cal-'.*/ CDAV_URI_KEY."\n";
-			else
-				$caldata.="UID:".$obj->sourceuid."\n";
-			$caldata.="SUMMARY:".strtr(trim($obj->label), array("\n"=>"\\n", "\r"=>""))."\n";
-			$caldata.="URL:".dol_buildpath("/comm/action/card.php?id=".$obj->id, 2)."\n";
-			$caldata.="LOCATION:".strtr(trim($location), array("\n"=>"\\n", "\r"=>""))."\n";
-			$caldata.="PRIORITY:".$obj->priority."\n";
-			if($obj->fulldayevent)
-			{
-				$caldata.="DTSTART;VALUE=DATE:".date('Ymd', strtotime($obj->datep))."\n";
-				if($type=='VEVENT')
-				{
-					if(trim($obj->datep2)>trim($obj->datep))
-						$caldata.="DTEND;VALUE=DATE:".date('Ymd', strtotime($obj->datep2)+1)."\n";
-					else
-						$caldata.="DTEND;VALUE=DATE:".date('Ymd', strtotime($obj->datep)+(25*3600))."\n";
-				}
-				elseif(trim($obj->datep2)!='')
-					$caldata.="DUE;VALUE=DATE:".date('Ymd', strtotime($obj->datep2)+1)."\n";
-			}
-			else
-			{
-				$caldata.="DTSTART;TZID=".$timezone.":".strtr($obj->datep,array(" "=>"T", ":"=>"", "-"=>""))."\n";
-				if($type=='VEVENT')
-				{
-					if(trim($obj->datep2)>trim($obj->datep))
-						$caldata.="DTEND;TZID=".$timezone.":".strtr($obj->datep2,array(" "=>"T", ":"=>"", "-"=>""))."\n";
-					else
-						$caldata.="DTEND;TZID=".$timezone.":".strtr($obj->datep,array(" "=>"T", ":"=>"", "-"=>""))."\n";
-				}
-				elseif(trim($obj->datep2)!='')
-					$caldata.="DUE;TZID=".$timezone.":".strtr($obj->datep2,array(" "=>"T", ":"=>"", "-"=>""))."\n";
-			}
-			$caldata.="CLASS:PUBLIC\n";
-			if($obj->transparency==1)
-				$caldata.="TRANSP:TRANSPARENT\n";
-			else
-				$caldata.="TRANSP:OPAQUE\n";
-
-			if($type=='VEVENT')
-				$caldata.="STATUS:CONFIRMED\n";
-			elseif($obj->percent==0)
-				$caldata.="STATUS:NEEDS-ACTION\n";
-			elseif($obj->percent==100)
-				$caldata.="STATUS:COMPLETED\n";
-			else
-			{
-				$caldata.="STATUS:IN-PROCESS\n";
-				$caldata.="PERCENT-COMPLETE:".$obj->percent."\n";
-			}
-
-			$caldata.="DESCRIPTION:";
-			if(!empty($obj->proj_ref))
-				$caldata.="💼📋 [".$obj->proj_ref."] ".$obj->proj_title."\\n";
-			if(!empty($obj->proj_desc))
-				$caldata.="💼⚠️ ".strtr(trim(strip_tags($obj->proj_desc)), array("\n"=>"\\n💼⚠️ ", "\r"=>""))."\\n";
-			if(!empty($obj->soc_town))
-				$caldata.="💼🏁 ".strtr(trim($obj->soc_town), array("\n"=>"\\n", "\r"=>""))."\\n";
-			if(!empty($obj->soc_nom))
-				$caldata.="💼🏢 ".strtr(trim($obj->soc_nom), array("\n"=>"\\n", "\r"=>""))."\\n";
-			if(!empty($obj->soc_phone))
-				$caldata.="💼☎️ ".$obj->soc_phone."\\n";
-			if(!empty($obj->firstname) || !empty($obj->lastname))
-				$caldata.="💼👨 ".trim($obj->firstname.' '.$obj->lastname)."\\n";
-			if(!empty($obj->phone) || !empty($obj->phone_perso) || !empty($obj->phone_mobile))
-				$caldata.="💼📞 ".trim($obj->phone.' '.$obj->phone_perso.' '.$obj->phone_mobile)."\\n";
-	// removed because unable to swap from one calendar to an other with extrenal client
-	//		if(strpos($obj->other_users,',')) // several
-	//			$caldata.="💼USR: ".$obj->other_users."\\n";
-			if($type=='VEVENT')
-				$caldata.=strtr(trim($obj->note), array("\n"=>"\\n", "\r"=>""));
-			else
-				$caldata.=strtr("\n".trim($obj->note), array("\n- ["=>"\\n[", "\n- "=>"\\n[ ] ", "[x] [ ]"=>"[x]", "[ ] [x]"=>"[x]", "[x] [x]"=>"[x]", "[ ] [ ]"=>"[ ]", "\n"=>"\\n", "\r"=>""));
-			$caldata.="\n";
-
-			$caldata.="END:".$type."\n";
-			if($bHeader)
-				$caldata.="END:VCALENDAR\n";
+		require_once DOL_DOCUMENT_ROOT.'/includes/sabre/autoload.php';
+		$source = $obj->elem_source;
+		if (!in_array($source, array('ev', 'pe', 'pt', 'fi'), true)) throw new InvalidArgumentException('Unknown calendar source');
+		$type = $source === 'pt' || ($source === 'ev' && (int) $obj->percent !== -1) ? 'VTODO' : 'VEVENT';
+		$calendar = new \Sabre\VObject\Component\VCalendar();
+		$calendar->PRODID = '-//Dolibarr CDav//FR';
+		$component = $calendar->add($type, array());
+		$component->UID = $source === 'ev' && !empty($obj->sourceuid) ? (string) $obj->sourceuid : $obj->id.'-'.$source.'-'.CDAV_URI_KEY;
+		$component->SUMMARY = trim((string) ($obj->label ?? ''));
+		if ($source === 'pe' || $source === 'pt') $component->SUMMARY = '['.trim((string) $obj->proj_title).']'.trim((string) $obj->label);
+		if ($source === 'fi') $component->SUMMARY = '['.trim((string) $obj->fi_ref).'] '.trim((string) ($obj->fi_description ?: $obj->soc_nom));
+		$paths = array('ev' => '/comm/action/card.php?id='.$obj->id, 'pe' => '/projet/tasks/task.php?id='.$obj->id.'&withproject='.($obj->fk_projet ?? 0), 'pt' => '/projet/tasks/task.php?id='.$obj->id.'&withproject='.($obj->fk_projet ?? 0), 'fi' => '/fichinter/card.php?id='.($obj->fi_id ?? 0));
+		$component->URL = dol_buildpath($paths[$source], 2);
+		$component->CLASS = 'PUBLIC';
+		$component->TRANSP = $source === 'ev' && !empty($obj->transparency) ? 'TRANSPARENT' : 'OPAQUE';
+		$component->PRIORITY = max(0, min(9, (int) ($obj->priority ?? 0)));
+		$percent = (int) ($source === 'ev' ? $obj->percent : ($obj->progress ?? 0));
+		$component->STATUS = $type === 'VEVENT' ? 'CONFIRMED' : ($percent >= 100 ? 'COMPLETED' : ($percent <= 0 ? 'NEEDS-ACTION' : 'IN-PROCESS'));
+		if ($type === 'VTODO') $component->{'PERCENT-COMPLETE'} = max(0, min(100, $percent));
+		$startValue = $source === 'ev' ? $obj->datep : ($source === 'fi' ? $obj->det_date : $obj->dateo);
+		$endValue = $source === 'ev' ? $obj->datep2 : ($source === 'fi' ? '' : $obj->datee);
+		$timezone = new DateTimeZone(date_default_timezone_get());
+		$utc = new DateTimeZone('UTC');
+		$start = $startValue ? new DateTimeImmutable($startValue, $timezone) : null;
+		$end = $endValue ? new DateTimeImmutable($endValue, $timezone) : null;
+		if ($source === 'fi' && $start) $end = $start->modify('+'.max(1, (int) $obj->det_duree).' seconds');
+		$fullday = $source === 'ev' && !empty($obj->fulldayevent);
+		if ($start) {
+			if ($fullday) $component->add('DTSTART', $start->format('Ymd'), array('VALUE' => 'DATE'));
+			else $component->DTSTART = $start->setTimezone($utc)->format('Ymd\THis\Z');
 		}
-	   elseif(substr($obj->elem_source,0,1)=='p')		// Project Task  pe/pt
-	   {
-			if($obj->elem_source=='pe')
-				$type='VEVENT';
-			else 	// 'pt'
-				$type='VTODO';
-
-			$location='';
-
-			// soc address
-			if(!empty($obj->soc_address))
-			{
-				$location = trim(str_replace(array("\r","\t","\n"),' ', $obj->soc_address));
-				$location = trim($location.', '.$obj->soc_zip);
-				$location = trim($location.' '.$obj->soc_town);
-				$location = trim($location.', '.$obj->soc_country_label);
-			}
-
-			$timezone = date_default_timezone_get();
-
-			$caldata ="BEGIN:VCALENDAR\n";
-			$caldata.="VERSION:2.0\n";
-			$caldata.="PRODID:-//Dolibarr CDav//FR\n";
-			$caldata.="BEGIN:".$type."\n";
-			$caldata.="CREATED:".gmdate('Ymd\THis', strtotime($obj->datec))."Z\n";
-			$caldata.="LAST-MODIFIED:".gmdate('Ymd\THis', strtotime($obj->lastupd))."Z\n";
-			$caldata.="DTSTAMP:".gmdate('Ymd\THis', strtotime($obj->lastupd))."Z\n";
-			$caldata.="UID:".$obj->id.'-'.$obj->elem_source.'-'./*$calid.'-cal-'.*/ CDAV_URI_KEY."\n";
-			$caldata.="SUMMARY:[".strtr(trim($obj->proj_title), array("\n"=>"\\n", "\r"=>""))."]".strtr(trim($obj->label), array("\n"=>"\\n", "\r"=>""))."\n";
-			$caldata.="URL:".dol_buildpath("/projet/tasks/task.php?id=".$obj->id."&withproject=".$obj->fk_projet,2)."\n";
-			$caldata.="LOCATION:".strtr(trim($location), array("\n"=>"\\n", "\r"=>""))."\n";
-			$caldata.="PRIORITY:".$obj->priority."\n";
-
-			$caldata.="DTSTART;TZID=".$timezone.":".strtr($obj->dateo,array(" "=>"T", ":"=>"", "-"=>""))."\n";
-			if($type=='VEVENT')
-			{
-				if(trim($obj->datee)>trim($obj->dateo))
-					$caldata.="DTEND;TZID=".$timezone.":".strtr($obj->datee,array(" "=>"T", ":"=>"", "-"=>""))."\n";
-				else
-					$caldata.="DTEND;TZID=".$timezone.":".strtr($obj->dateo,array(" "=>"T", ":"=>"", "-"=>""))."\n";
-			}
-			elseif(trim($obj->datee)!='')
-				$caldata.="DUE;TZID=".$timezone.":".strtr($obj->datee,array(" "=>"T", ":"=>"", "-"=>""))."\n";
-
-			$caldata.="CLASS:PUBLIC\n";
-			$caldata.="TRANSP:OPAQUE\n";
-
-			if($type=='VEVENT')
-				$caldata.="STATUS:CONFIRMED\n";
-			elseif($obj->progress==0)
-				$caldata.="STATUS:NEEDS-ACTION\n";
-			elseif($obj->progress==100)
-				$caldata.="STATUS:COMPLETED\n";
-			else
-			{
-				$caldata.="STATUS:IN-PROCESS\n";
-				$caldata.="PERCENT-COMPLETE:".$obj->progress."\n";
-			}
-
-			$caldata.="DESCRIPTION:";
-			if(!empty($obj->proj_desc))
-				$caldata.="💼⚠️ ".strtr(trim(strip_tags($obj->proj_desc)), array("\n"=>"\\n💼⚠️ ", "\r"=>""))."\\n";
-			if(!empty($obj->soc_town))
-				$caldata.="💼🏁 ".$obj->soc_town."\\n";
-			if(!empty($obj->soc_nom))
-				$caldata.="💼🏢 ".$obj->soc_nom."\\n";
-			if(!empty($obj->soc_phone))
-				$caldata.="💼☎️ ".$obj->soc_phone."\\n";
-			if(!empty($obj->other_contacts))
-				$caldata.="💼👨 ".$obj->other_contacts."\\n";
-			if(!empty($obj->proj_ref))
-				$caldata.="💼📋 [".$obj->proj_ref."/".$obj->ref."] ".$obj->proj_title."\\n";
-			if(!empty($obj->note_public))
-				$caldata.="💼📝 ".strtr(trim(strip_tags($obj->note_public)), array("\n"=>"\\n💼📝 ", "\r"=>""))."\\n";
-	//removed because unable to swap from one calendar to an other with external client
-	//		if(!empty($obj->note_private))
-	//			$caldata.="💼🔒 ".strtr(trim(strip_tags($obj->note_private)), array("\n"=>"\\n💼🔒 ", "\r"=>""))."\\n";
-			$caldata.=strtr("\n".trim($obj->description), array("\n- ["=>"\\n[", "\n- "=>"\\n[ ] ", "[x] [ ]"=>"[x]", "[ ] [x]"=>"[x]", "[x] [x]"=>"[x]", "[ ] [ ]"=>"[ ]", "\n"=>"\\n", "\r"=>""));
-	// removed because unable to swap from one calendar to an other with external client
-	//		if(strpos($obj->other_users,',')) // several
-	//			$caldata.="💼USR: ".$obj->other_users."\\n";
-			$caldata.="\n";
-
-			$caldata.="END:".$type."\n";
-			if($bHeader)
-				$caldata.="END:VCALENDAR\n";
+		$endProperty = $type === 'VEVENT' ? 'DTEND' : 'DUE';
+		if ($type === 'VEVENT' && $start && (!$end || $end < $start)) $end = $start;
+		if ($end) {
+			if ($fullday) {
+				// Native all-day events end inclusively; RFC 5545 uses an exclusive date.
+				$exclusive = $end->modify('+1 second');
+				if ($start && $exclusive->format('Ymd') <= $start->format('Ymd')) $exclusive = $start->modify('+1 day');
+				$component->add($endProperty, $exclusive->format('Ymd'), array('VALUE' => 'DATE'));
+			} else $component->{$endProperty} = $end->setTimezone($utc)->format('Ymd\THis\Z');
 		}
-	   elseif($obj->elem_source=='fi')		// Intervention card line (fichinterdet)
-	   {
-			$type='VEVENT';
-
-			$location='';
-
-			// soc address
-			if(!empty($obj->soc_address))
-			{
-				$location = trim(str_replace(array("\r","\t","\n"),' ', $obj->soc_address));
-				$location = trim($location.', '.$obj->soc_zip);
-				$location = trim($location.' '.$obj->soc_town);
-				$location = trim($location.', '.$obj->soc_country_label);
-			}
-
-			$timezone = date_default_timezone_get();
-
-			$caldata ="";
-			if($bHeader)
-			{
-				$caldata ="BEGIN:VCALENDAR\n";
-				$caldata.="VERSION:2.0\n";
-				$caldata.="PRODID:-//Dolibarr CDav//FR\n";
-			}
-			$caldata.="BEGIN:".$type."\n";
-			$caldata.="CREATED:".gmdate('Ymd\THis', strtotime($obj->datec))."Z\n";
-			$caldata.="LAST-MODIFIED:".gmdate('Ymd\THis', strtotime($obj->lastupd))."Z\n";
-			$caldata.="DTSTAMP:".gmdate('Ymd\THis', strtotime($obj->lastupd))."Z\n";
-			$caldata.="UID:".$obj->id.'-fi-'.CDAV_URI_KEY."\n";
-			$summary = trim($obj->fi_description);
-			if($summary=='')
-				$summary = trim($obj->soc_nom);
-			$summary = '['.trim($obj->fi_ref).'] '.$summary;
-			$caldata.="SUMMARY:".strtr($summary, array("\n"=>" ", "\r"=>""))."\n";
-			$caldata.="URL:".dol_buildpath("/fichinter/card.php?id=".$obj->fi_id, 2)."\n";
-			$caldata.="LOCATION:".strtr(trim($location), array("\n"=>"\\n", "\r"=>""))."\n";
-
-			// fichinterdet.date is DATETIME, fichinterdet.duree is in seconds
-			$startTs = strtotime($obj->det_date);
-			$endTs = $startTs + intval($obj->det_duree);
-			if($endTs <= $startTs)
-				$endTs = $startTs + 3600;
-			$caldata.="DTSTART;TZID=".$timezone.":".date('Ymd\THis', $startTs)."\n";
-			$caldata.="DTEND;TZID=".$timezone.":".date('Ymd\THis', $endTs)."\n";
-
-			$caldata.="CLASS:PUBLIC\n";
-			$caldata.="TRANSP:OPAQUE\n";
-			$caldata.="STATUS:CONFIRMED\n";
-
-			$caldata.="DESCRIPTION:";
-			if(!empty($obj->proj_ref))
-				$caldata.="💼📋 [".$obj->proj_ref."] ".$obj->proj_title."\\n";
-			if(!empty($obj->proj_desc))
-				$caldata.="💼⚠️ ".strtr(trim(strip_tags($obj->proj_desc)), array("\n"=>"\\n💼⚠️ ", "\r"=>""))."\\n";
-			if(!empty($obj->soc_nom))
-				$caldata.="💼🏢 ".$obj->soc_nom."\\n";
-			if(!empty($obj->proj_ref))
-				$caldata.="💼📋 [".$obj->proj_ref."] ".$obj->proj_title."\\n";
-			if(!empty($obj->soc_town))
-				$caldata.="💼🏁 ".$obj->soc_town."\\n";
-			if(!empty($obj->soc_phone))
-				$caldata.="💼☎️ ".$obj->soc_phone."\\n";
-			if(!empty($obj->other_contacts))
-				$caldata.="💼👨 ".$obj->other_contacts."\\n";
-			if(!empty($obj->fi_note_public))
-				$caldata.="💼📝 ".strtr(trim(strip_tags($obj->fi_note_public)), array("\n"=>"\\n💼📝 ", "\r"=>""))."\\n";
-			if(!empty($obj->det_description))
-				$caldata.=strtr(trim(strip_tags($obj->det_description)), array("\n"=>"\\n", "\r"=>""));
-			$caldata.="\n";
-
-			$caldata.="END:".$type."\n";
-			if($bHeader)
-				$caldata.="END:VCALENDAR\n";
+		foreach (array('CREATED' => $obj->datec ?? '', 'LAST-MODIFIED' => $obj->lastupd ?? '', 'DTSTAMP' => $obj->lastupd ?? ($obj->datec ?? '')) as $name => $value) {
+			if ($value) $component->{$name} = (new DateTimeImmutable($value, $timezone))->setTimezone($utc)->format('Ymd\THis\Z');
 		}
-
-		return $caldata;
+		if (!isset($component->DTSTAMP)) $component->DTSTAMP = '19700101T000000Z';
+		$location = trim((string) ($obj->location ?? ''));
+		if ($location === '') {
+			$prefix = $source === 'ev' && !empty($obj->address) ? '' : 'soc_';
+			$location = trim((string) ($obj->{$prefix.'address'} ?? ''));
+			if ($location !== '') $location .= ', '.trim(($obj->{$prefix.'zip'} ?? '').' '.($obj->{$prefix.'town'} ?? '')).', '.($obj->{$prefix.'country_label'} ?? '');
+		}
+		$component->LOCATION = trim(str_replace(array("\r", "\n", "\t"), ' ', $location));
+		// Keep the existing contextual information; Sabre escapes and folds all text.
+		$description = array();
+		if (!empty($obj->proj_ref)) $description[] = '💼📋 ['.$obj->proj_ref.(in_array($source, array('pe', 'pt'), true) ? '/'.$obj->ref : '').'] '.$obj->proj_title;
+		foreach (array('proj_desc' => '💼⚠️ ', 'soc_town' => '💼🏁 ', 'soc_nom' => '💼🏢 ', 'soc_phone' => '💼☎️ ') as $field => $prefix) {
+			if (!empty($obj->{$field})) $description[] = $prefix.trim(strip_tags((string) $obj->{$field}));
+		}
+		if ($source === 'ev') {
+			$name = trim(($obj->firstname ?? '').' '.($obj->lastname ?? ''));
+			$phones = trim(($obj->phone ?? '').' '.($obj->phone_perso ?? '').' '.($obj->phone_mobile ?? ''));
+			if ($name !== '') $description[] = '💼👨 '.$name;
+			if ($phones !== '') $description[] = '💼📞 '.$phones;
+			$note = trim((string) ($obj->note ?? ''));
+		} else {
+			if (!empty($obj->other_contacts)) $description[] = '💼👨 '.$obj->other_contacts;
+			$publicNote = $source === 'fi' ? ($obj->fi_note_public ?? '') : ($obj->note_public ?? '');
+			if ($publicNote !== '') $description[] = '💼📝 '.trim(strip_tags((string) $publicNote));
+			$note = trim((string) ($source === 'fi' ? strip_tags((string) $obj->det_description) : $obj->description));
+		}
+		if ($type === 'VTODO') $note = strtr("\n".$note, array("\n- [" => "\n[", "\n- " => "\n[ ] ", '[x] [ ]' => '[x]', '[ ] [x]' => '[x]', '[x] [x]' => '[x]', '[ ] [ ]' => '[ ]'));
+		$description[] = $note;
+		$component->DESCRIPTION = implode("\n", $description);
+		return $bHeader ? $calendar->serialize() : $component->serialize();
 	}
 
 	public function getFullCalendarObjects($calendarId, $bCalendarData)

@@ -2,6 +2,7 @@
 use Sabre\DAV;
 
 require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
+require_once __DIR__.'/cdavcompatibility.class.php';
 
 /** Stateful filesystem context, including the owning entity and native document module. */
 trait CDavFileContext
@@ -16,6 +17,8 @@ trait CDavFileContext
 
 	public function __construct($path, $user, $root = '', $modulepart = '', $entity = 1, $readRight = array('ecm', 'read'), $writeRight = array('ecm', 'upload'), $deleteRight = array('ecm', 'setup'))
 	{
+		$path = str_replace(chr(92), '/', $path);
+		$root = str_replace(chr(92), '/', $root);
 		parent::__construct($path);
 		$this->davUser = $user;
 		$this->root = $root !== '' ? $root : $path;
@@ -52,9 +55,19 @@ trait CDavFileContext
 		if (is_file($this->path) && strtolower(pathinfo($name, PATHINFO_EXTENSION)) !== strtolower(pathinfo($this->path, PATHINFO_EXTENSION))) throw new DAV\Exception\Forbidden();
 		$target = dirname($this->path).'/'.$name;
 		$this->childPath($name); $this->checkPath($this->path, 'write'); $this->checkPath($target, 'write');
+		if (is_dir($this->path)) $this->checkDescendants();
 		if (is_dir($this->path) ? dol_move_dir($this->path, $target, 0) < 0 : !dol_move($this->path, $target, 0, 0, 1)) throw new DAV\Exception('File operation failed');
 		$this->path = $target;
 	}
+	/** Preflight the entire subtree before a recursive deletion or rename. */
+	public function checkDescendants()
+	{
+		foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->path, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::SELF_FIRST) as $entry) {
+			if ($entry->isLink() || $entry->getFilename()[0] === '.') throw new DAV\Exception\Forbidden();
+			$this->checkPath(str_replace(DIRECTORY_SEPARATOR, '/', $entry->getPathname()), 'write');
+		}
+	}
+
 }
 
 class CDavDirectory extends DAV\FS\Directory
@@ -100,7 +113,8 @@ class CDavDirectory extends DAV\FS\Directory
 	{
 		if (!$this->davUser->hasRight(...$this->deleteRight) || $this->path === $this->root) throw new DAV\Exception\Forbidden();
 		$this->checkPath($this->path, 'write');
-		// Native recursive deletion is unsafe if an inaccessible descendant was hidden.
+		// Refuse before deleting anything if an inaccessible descendant was hidden.
+		$this->checkDescendants();
 		foreach (new DirectoryIterator($this->path) as $entry) {
 			if (!$entry->isDot()) $this->getChild($entry->getFilename())->delete();
 		}
@@ -122,6 +136,7 @@ class CDavFile extends DAV\FS\File
 	public function put($data)
 	{
 		if (!$this->davUser->hasRight(...$this->writeRight)) throw new DAV\Exception\Forbidden();
+		if (!CDavCompatibility::isFeatureAvailable('webdav_write')) throw new DAV\Exception\ServiceUnavailable('WebDAV upload prerequisites unavailable');
 		$this->checkPath($this->path, 'write');
 		// DAV is not an HTTP multipart upload. Stage in the owner's directory, then
 		// apply the native virus scan/move and index, with a restrictive extension policy.
@@ -150,7 +165,7 @@ class CDavFile extends DAV\FS\File
 				if (!$written) throw new DAV\Exception('File operation failed');
 			}
 			if (!dol_move($temp, $this->path, 0, 1, 1)) throw new DAV\Exception('File operation failed');
-			addFileIntoDatabaseIndex(dirname($this->path), basename($this->path));
+			if (addFileIntoDatabaseIndex(dirname($this->path), basename($this->path)) < 0) throw new DAV\Exception('File index update failed');
 		} finally {
 			if (is_file($temp)) dol_delete_file($temp);
 		}

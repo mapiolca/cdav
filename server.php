@@ -72,6 +72,12 @@ try {
 	exit;
 }
 define('DOLENTITY', $cdavRoute['entity']);
+// This endpoint is not a login page; prevent native bootstrap entity overrides.
+if (isset($_GET['loginfunction']) || isset($_POST['loginfunction'])
+	|| (session_id() !== '' && !empty($_SESSION['dol_entity'])) || !empty($_ENV['dol_entity'])) {
+	http_response_code(400);
+	exit;
+}
 
 // Load Dolibarr environment
 $res = 0;
@@ -139,21 +145,22 @@ require __DIR__.'/class/CalDAVDolibarr.php';
 // Authenticate before constructing any principal or opening any document directory.
 $username = isset($_SERVER['PHP_AUTH_USER']) ? (string) $_SERVER['PHP_AUTH_USER'] : '';
 $password = isset($_SERVER['PHP_AUTH_PW']) ? (string) $_SERVER['PHP_AUTH_PW'] : '';
-$authmodes = array_values(array_diff(explode(',', $dolibarr_main_authentication ?: 'dolibarr'), array('googlerecaptcha')));
+$authmodes = array_values(array_diff(array_map('trim', explode(',', $dolibarr_main_authentication ?: 'dolibarr')), array('googlerecaptcha')));
 $multicompanyActive = isModEnabled('multicompany');
+$transverseMode = $multicompanyActive && getDolGlobalInt('MULTICOMPANY_TRANSVERSE_MODE');
 $login = $username !== '' ? checkLoginPassEntity($username, $password, (int) $conf->entity, $authmodes, 'dav') : '';
 $user = new User($db);
 $authenticated = false;
 if (is_string($login) && $login !== '') {
-	$accountEntity = isModEnabled('multicompany') && getDolGlobalInt('MULTICOMPANY_TRANSVERSE_MODE') ? 1 : (int) $conf->entity;
+	$accountEntity = $transverseMode ? 1 : (int) $conf->entity;
 	$sql = "SELECT rowid FROM ".MAIN_DB_PREFIX."user WHERE login='".$db->escape($login)."' AND entity IN (0,".$accountEntity.") AND statut=1";
 	$resql = $db->query($sql);
 	if ($resql && $db->num_rows($resql) === 1 && is_object($row = $db->fetch_object($resql)) && $user->fetch((int) $row->rowid) > 0) {
 		$authenticated = empty($user->socid) && empty($user->societe_id);
 		if ($multicompanyActive) {
 			// Authentication and entity admission are distinct, including centralized users.
-			$authenticated = $authenticated && isset($mc) && is_object($mc) && method_exists($mc, 'checkRight')
-				&& $mc->checkRight((int) $user->id, (int) $conf->entity) >= 0;
+			$admission = isset($mc) && is_object($mc) && method_exists($mc, 'checkRight') ? $mc->checkRight((int) $user->id, (int) $conf->entity) : null;
+			$authenticated = $authenticated && is_int($admission) && $admission >= 0;
 		}
 	}
 }
@@ -162,7 +169,8 @@ if (!$authenticated) {
 	http_response_code(401);
 	exit;
 }
-$user->getrights('', 1);
+if (version_compare(DOL_VERSION, '20.0.0', '>=')) $user->loadRights('', 1);
+else $user->getrights('', 1);
 $cdavLib = new CdavLib($user, $db, $langs);
 $authBackend = new DAV\Auth\Backend\BasicCallBack(function ($name, $pass) use ($username, $password) {
 	return hash_equals($username, $name) && hash_equals($password, $pass);
@@ -198,10 +206,11 @@ if (CDavCompatibility::isFeatureAvailable('directories')) {
 		http_response_code(503);
 		exit($langs->transnoentities('CDavRequiresDirectories'));
 	}
+	if (is_link($cdavDirectory.'/.locks')) { http_response_code(503); exit; }
 	$lockBackend = new DAV\Locks\Backend\File($cdavDirectory.'/.locks');
 	require_once __DIR__.'/class/CDavDirectory.php';
 	if ($user->hasRight('ecm', 'read') && is_dir($cdavDirectory.'/public')) {
-		$nodes[] = new CDavDirectory($cdavDirectory.'/public', $user);
+		$nodes[] = new CDavDirectory($cdavDirectory.'/public', $user, '', '', (int) $conf->entity);
 	}
 }
 

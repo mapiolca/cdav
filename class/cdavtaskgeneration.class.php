@@ -103,7 +103,8 @@ class CDavTaskGeneration
 			}
 			$res = $this->db->query('SELECT u.rowid FROM '.MAIN_DB_PREFIX.'user u WHERE '.cdavCalendarUserScope().' AND u.rowid='.$assigned);
 			if (!$res || !is_object($this->db->fetch_object($res))) throw new RuntimeException('CDavGenerationRole');
-			$startHour = getDolGlobalInt('CDAV_TASK_HOUR_INI', 7); $endHour = getDolGlobalInt('CDAV_TASK_HOUR_END', 19);
+			$startHour = getDolGlobalString('CDAV_TASK_HOUR_INI') === '' ? 7 : getDolGlobalInt('CDAV_TASK_HOUR_INI');
+			$endHour = getDolGlobalString('CDAV_TASK_HOUR_END') === '' ? 19 : getDolGlobalInt('CDAV_TASK_HOUR_END');
 			if (empty($project->date_start) || $startHour < 0 || $endHour > 23 || $endHour <= $startHour) throw new RuntimeException('CDavGenerationDate');
 			$date = dol_getdate($project->date_start);
 			$start = dol_mktime($startHour, 0, 0, $date['mon'], $date['mday'], $date['year']);

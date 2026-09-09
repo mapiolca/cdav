@@ -11,11 +11,12 @@ foreach (array('Dolibarr' => DOL_VERSION, 'PHP' => PHP_VERSION, 'CDavMinimum' =>
 }
 print '</table></div><br>';
 print '<div class="div-table-responsive-no-min"><table class="noborder centpercent">';
-print '<tr class="liste_titre"><th>'.$langs->trans('CDavCapability').'</th><th>'.$langs->trans('Status').'</th><th>'.$langs->trans('Description').'</th></tr>';
+print '<tr class="liste_titre"><th>'.$langs->trans('CDavCapability').'</th><th>'.$langs->trans('Status').'</th><th>'.$langs->trans('Description').'</th><th>'.$langs->trans('CDavCoreAvailability').'</th></tr>';
 foreach (CDavCompatibility::getFeatures() as $feature) {
 	print '<tr class="oddeven"><td>'.$langs->trans($feature['label']).'</td><td>';
-	print $langs->trans($feature['available'] ? 'CDavAvailable' : 'CDavUnavailable');
-	print '</td><td>'.($feature['available'] ? '' : $langs->trans($feature['reason'])).'</td></tr>';
+	print '<span class="badge badge-status'.($feature['available'] ? '4' : '0').'">'.$langs->trans($feature['available'] ? 'CDavAvailable' : 'CDavUnavailable').'</span>';
+	print '</td><td>'.$langs->trans($feature['reason']).($feature['detail'] !== '' ? '<br>'.dol_escape_htmltag($feature['detail']) : '').'</td>';
+	print '<td>Dolibarr '.dol_escape_htmltag($feature['core_versions']).'<br>'.$langs->trans('CDavMinimum').': '.dol_escape_htmltag($feature['min_dolibarr']).' / PHP '.dol_escape_htmltag($feature['min_php']).'</td></tr>';
 }
 print '</table></div><br>';
 print '<p>'.$langs->trans('CDavVersionPolicy').'</p>';

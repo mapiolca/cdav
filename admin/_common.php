@@ -8,6 +8,8 @@ if (!isset($cdavAdminTab) || !in_array($cdavAdminTab, array('setup', 'carddav', 
 	http_response_code(404);
 	exit;
 }
+// Require the native token check even when the instance default is less strict.
+define('CSRFCHECK_WITH_TOKEN', 1);
 $res = 0;
 foreach (array(__DIR__.'/../../main.inc.php', __DIR__.'/../../../main.inc.php') as $mainfile) {
 	if (is_file($mainfile)) {
@@ -24,6 +26,7 @@ if (!$res) {
 }
 require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/ajax.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.formsetup.class.php';
 require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
 require_once __DIR__.'/../lib/cdav_admin.lib.php';
@@ -38,13 +41,19 @@ $hookmanager->initHooks(array('cdavsetup', 'globalsetup'));
 $settings = cdavSettingsDefinition($cdavAdminTab);
 $submitted = array();
 $errors = array();
-if ($action === 'update') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+// Native non-Ajax switches send set_/del_ actions; accept only this tab's booleans.
+$switchKey = preg_match('/^(set|del)_(CDAV_[A-Z0-9_]+)$/D', $action, $switchParts) ? $switchParts[2] : '';
+if ($switchKey !== '') {
+	if (!isset($settings[$switchKey]) || $settings[$switchKey]['type'] !== 'bool') accessforbidden();
+	$submitted[$switchKey] = $switchParts[1] === 'set' ? '1' : '0';
+}
+if ($action === 'update' || $switchKey !== '') {
+	if ($switchKey === '' && $_SERVER['REQUEST_METHOD'] !== 'POST') {
 		accessforbidden();
 	}
 	// main.inc.php checks the CSRF token before reaching this action.
 	foreach ($settings as $key => $definition) {
-		if (GETPOSTISSET($key)) {
+		if ($switchKey === '' && GETPOSTISSET($key)) {
 			$value = GETPOST($key, 'alphanohtml');
 			$submitted[$key] = is_string($value) ? trim($value) : '!invalid!';
 			if ($submitted[$key] === '-1' && in_array($definition['type'], array('service', 'contactcategory', 'productcategory', 'role'), true)) $submitted[$key] = '';

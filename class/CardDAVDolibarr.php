@@ -660,16 +660,16 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		else
 			$categ[] = $this->langs->transnoentitiesnoconv('ContactPublic');
 		if (isModEnabled('categorie')  && $this->user->hasRight('categorie', 'lire'))
-			if(trim($obj->category_label)!='')
-				$categ[] = trim($obj->category_label);
+			if(trim((string) $obj->category_label)!='')
+				$categ[] = trim((string) $obj->category_label);
 
-		$soc_address=explode("\n",$obj->soc_address,2);
+		$soc_address=explode("\n", (string) $obj->soc_address, 2);
 		foreach($soc_address as $kAddr => $vAddr)
 			$soc_address[$kAddr] = trim(str_replace(array("\r","\t"),' ', str_replace("\n",' | ', trim($vAddr))));
 		$soc_address[]='';
 		$soc_address[]='';
 
-		$address=explode("\n",$obj->address,2);
+		$address=explode("\n", (string) $obj->address, 2);
 		foreach($address as $kAddr => $vAddr)
 		{
 			$address[$kAddr] = trim(str_replace(array("\r","\t"),' ', str_replace("\n",' | ', trim($vAddr))));
@@ -713,7 +713,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		$carddata.=	 str_replace(';','\;',$obj->town).";;".str_replace(';','\;',$obj->zip).";".str_replace(';','\;',$obj->country_label)."\n";
 		$carddata.="ADR;TYPE=WORK;CHARSET=UTF-8:;".str_replace(';','\;',$soc_address[1]).";".str_replace(';','\;',$soc_address[0]).";";
 		$carddata.=	 str_replace(';','\;',$obj->soc_town).";;".str_replace(';','\;',$obj->soc_zip).";".str_replace(';','\;',$obj->soc_country_label)."\n";
-		$carddata.="TEL;TYPE=WORK,VOICE:".str_replace(';','\;',(trim($obj->phone)==''?$obj->soc_phone:$obj->phone))."\n";
+		$carddata.="TEL;TYPE=WORK,VOICE:".str_replace(';','\;',(trim((string) $obj->phone)==''?$obj->soc_phone:$obj->phone))."\n";
 		if(!empty($obj->phone_perso))
 			$carddata.="TEL;TYPE=HOME,VOICE:".str_replace(';','\;',$obj->phone_perso)."\n";
 		if(!empty($obj->phone_mobile))
@@ -729,15 +729,15 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		if(!empty($obj->soc_url))
 		{
 			if(strpos($obj->soc_url,'://')===false)
-				$carddata.="URL:http://".trim($obj->soc_url)."\n";
+				$carddata.="URL:http://".trim((string) $obj->soc_url)."\n";
 			else
-				$carddata.="URL:".trim($obj->soc_url)."\n";
+				$carddata.="URL:".trim((string) $obj->soc_url)."\n";
 		}
 		$carddata.=$this->_socialNetworksToVCard($obj);
 		if(!empty($obj->birthday))
 			$carddata.="BDAY:".str_replace(';','\;',$obj->birthday)."\n";
 		if(!empty($obj->note_public))
-			$carddata.="NOTE;CHARSET=UTF-8:".str_replace(';','\;',strtr(trim($obj->note_public),array("\n"=>"\\n", "\r"=>"")))."\n";
+			$carddata.="NOTE;CHARSET=UTF-8:".str_replace(';','\;',strtr(trim((string) $obj->note_public),array("\n"=>"\\n", "\r"=>"")))."\n";
 		if(!empty($obj->photo))
 		{
 			$photofile = \cdavDocumentRoot($obj, 'societe')."/contact/".(int) $obj->rowid."/photos/".dol_sanitizeFileName($obj->photo);
@@ -817,16 +817,16 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			$categ[] = $this->langs->transnoentitiesnoconv('Supplier');
 		}
 		if (isModEnabled('categorie')  && $this->user->hasRight('categorie', 'lire'))
-			if(trim($obj->category_label)!='')
-				$categ[] = trim($obj->category_label);
+			if(trim((string) $obj->category_label)!='')
+				$categ[] = trim((string) $obj->category_label);
 
-		$soc_address=explode("\n",$obj->soc_address,2);
+		$soc_address=explode("\n", (string) $obj->soc_address, 2);
 		foreach($soc_address as $kAddr => $vAddr)
 			$soc_address[$kAddr] = trim(str_replace(array("\r","\t"),' ', str_replace("\n",' | ', trim($vAddr))));
 		$soc_address[]='';
 		$soc_address[]='';
 
-		$address=explode("\n",$obj->address,2);
+		$address=explode("\n", (string) $obj->address, 2);
 		foreach($address as $kAddr => $vAddr)
 		{
 			$address[$kAddr] = trim(str_replace(array("\r","\t"),' ', str_replace("\n",' | ', trim($vAddr))));
@@ -861,7 +861,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		$carddata.=	 str_replace(';','\;',$obj->town).";;".str_replace(';','\;',$obj->zip).";".str_replace(';','\;',$obj->country_label)."\n";
 		$carddata.="ADR;TYPE=WORK;CHARSET=UTF-8:;".str_replace(';','\;',$soc_address[1]).";".str_replace(';','\;',$soc_address[0]).";";
 		$carddata.=	 str_replace(';','\;',$obj->soc_town).";;".str_replace(';','\;',$obj->soc_zip).";".str_replace(';','\;',$obj->soc_country_label)."\n";
-		$carddata.="TEL;TYPE=WORK,VOICE:".str_replace(';','\;',(trim($obj->phone)==''?$obj->soc_phone:$obj->phone))."\n";
+		$carddata.="TEL;TYPE=WORK,VOICE:".str_replace(';','\;',(trim((string) $obj->phone)==''?$obj->soc_phone:$obj->phone))."\n";
 		if(!empty($obj->phone_perso))
 			$carddata.="TEL;TYPE=HOME,VOICE:".str_replace(';','\;',$obj->phone_perso)."\n";
 		if(!empty($obj->phone_mobile))
@@ -875,15 +875,15 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		if(!empty($obj->soc_url))
 		{
 			if(strpos($obj->soc_url,'://')===false)
-				$carddata.="URL:https://".trim($obj->soc_url)."\n";
+				$carddata.="URL:https://".trim((string) $obj->soc_url)."\n";
 			else
-				$carddata.="URL:".trim($obj->soc_url)."\n";
+				$carddata.="URL:".trim((string) $obj->soc_url)."\n";
 		}
 		$carddata.=$this->_socialNetworksToVCard($obj);
 		if(!empty($obj->birth))
-			$carddata.="BDAY;VALUE=DATE:".str_replace(';','\;',date('Ymd',strtotime($obj->birth)))."\n";
+			$carddata.="BDAY;VALUE=DATE:".str_replace(';','\;',date('Ymd',strtotime((string) $obj->birth)))."\n";
 		if(!empty($obj->note_public))
-			$carddata.="NOTE;CHARSET=UTF-8:".str_replace(';','\;',strtr(trim($obj->note_public),array("\n"=>"\\n", "\r"=>"")))."\n";
+			$carddata.="NOTE;CHARSET=UTF-8:".str_replace(';','\;',strtr(trim((string) $obj->note_public),array("\n"=>"\\n", "\r"=>"")))."\n";
 		if(!empty($obj->photo))
 		{
 			$photofile = \cdavDocumentRoot($obj, 'adherent')."/member/".(int) $obj->rowid."/photos/".dol_sanitizeFileName($obj->photo);
@@ -962,10 +962,10 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			$categ[] = $this->langs->transnoentitiesnoconv('Supplier');
 		}
 		if (isModEnabled('categorie')  && $this->user->hasRight('categorie', 'lire'))
-			if(trim($obj->category_label)!='')
-				$categ[] = trim($obj->category_label);
+			if(trim((string) $obj->category_label)!='')
+				$categ[] = trim((string) $obj->category_label);
 
-		$address=explode("\n",$obj->address,2);
+		$address=explode("\n", (string) $obj->address, 2);
 		foreach($address as $kAddr => $vAddr)
 		{
 			$address[$kAddr] = trim(str_replace(array("\r","\t"),' ', str_replace("\n",' | ', trim($vAddr))));
@@ -1009,16 +1009,16 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		if(!empty($obj->url))
 		{
 			if(strpos($obj->url,'://')===false)
-				$carddata.="URL:https://".trim($obj->url)."\n";
+				$carddata.="URL:https://".trim((string) $obj->url)."\n";
 		}
 		$carddata.=$this->_socialNetworksToVCard($obj);
 		$carddata.="NOTE;CHARSET=UTF-8:";
 		foreach($doliinfo as $info)
 			$carddata.=strtr(trim($info),array("\n"=>"\\n", "\r"=>""))."\\n";
 		if(!empty($obj->note_public))
-			$carddata.=strtr(trim($obj->note_public),array("\n"=>"\\n", "\r"=>""))."\\n";
+			$carddata.=strtr(trim((string) $obj->note_public),array("\n"=>"\\n", "\r"=>""))."\\n";
 		if(!empty($obj->note_public))
-			$carddata.=strtr(trim($obj->note_public),array("\n"=>"\\n", "\r"=>""))."\\n";
+			$carddata.=strtr(trim((string) $obj->note_public),array("\n"=>"\\n", "\r"=>""))."\\n";
 		$carddata.="\n";
 		$carddata.="REV;TZID=".date_default_timezone_get().":".strtr($obj->lastupd,array(" "=>"T", ":"=>"", "-"=>""))."\n";
 		$carddata.="END:VCARD\n";
@@ -1043,7 +1043,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 
 		$vCard = VObject\Reader::read($cardData);
 		$vCard->validate(VObject\Node::REPAIR | VObject\Node::PROFILE_CARDDAV);
-		$vCard->convert(VObject\Document::VCARD30);
+		$vCard = $vCard->convert(VObject\Document::VCARD30);
 
 
 		$rdata['_uid'] = (string)$vCard->UID;
@@ -1164,7 +1164,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 			$rdata['birthday'] = trim($bday);
 
 		if(isset($vCard->NOTE))
-			$rdata['note_public'] = strtr(trim((string)$vCard->NOTE),"\\n", "\n");
+			$rdata['note_public'] = trim((string)$vCard->NOTE);
 
 		if(isset($rdata['_country_label']) && $rdata['_country_label']!='')
 		{
@@ -1192,7 +1192,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 
 		$vCard = VObject\Reader::read($cardData);
 		$vCard->validate(VObject\Node::REPAIR | VObject\Node::PROFILE_CARDDAV);
-		$vCard->convert(VObject\Document::VCARD30);
+		$vCard = $vCard->convert(VObject\Document::VCARD30);
 
 
 		$rdata['_uid'] = (string)$vCard->UID;
@@ -1303,7 +1303,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		$rdata['_socialnetworks'] = $this->_socialNetworksFromVCard($vCard);
 
 		if(isset($vCard->NOTE))
-			$rdata['note_public'] = strtr(trim((string)$vCard->NOTE),"\\n", "\n");
+			$rdata['note_public'] = trim((string)$vCard->NOTE);
 
 		if(isset($rdata['_country_label']) && $rdata['_country_label']!='')
 		{
@@ -1332,7 +1332,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 
 		$vCard = VObject\Reader::read($cardData);
 		$vCard->validate(VObject\Node::REPAIR | VObject\Node::PROFILE_CARDDAV);
-		$vCard->convert(VObject\Document::VCARD30);
+		$vCard = $vCard->convert(VObject\Document::VCARD30);
 
 
 		$rdata['_uid'] = (string)$vCard->UID;
@@ -1515,7 +1515,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 					$cards[] = [
 						// 'carddata' => $carddata,  not necessary because etag+size are present
 						'uri' => $this->cardMappings('ct')[(int) $obj->rowid]['uri'] ?? $obj->rowid.'-ct-'.CDAV_URI_KEY,
-						'lastmodified' => strtotime($obj->lastupd),
+						'lastmodified' => strtotime((string) $obj->lastupd),
 						'etag' => '"'.md5($carddata).'"',
 						'size' => strlen($carddata)
 					];
@@ -1536,7 +1536,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 					$cards[] = [
 						// 'carddata' => $carddata,  not necessary because etag+size are present
 						'uri' => $this->cardMappings('th')[(int) $obj->rowid]['uri'] ?? $obj->rowid.'-th-'.CDAV_URI_KEY,
-						'lastmodified' => strtotime($obj->lastupd),
+						'lastmodified' => strtotime((string) $obj->lastupd),
 						'etag' => '"'.md5($carddata).'"',
 						'size' => strlen($carddata)
 					];
@@ -1557,7 +1557,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 					$cards[] = [
 						// 'carddata' => $carddata,  not necessary because etag+size are present
 						'uri' => $this->cardMappings('mb')[(int) $obj->rowid]['uri'] ?? $obj->rowid.'-mb-'.CDAV_URI_KEY,
-						'lastmodified' => strtotime($obj->lastupd),
+						'lastmodified' => strtotime((string) $obj->lastupd),
 						'etag' => '"'.md5($carddata).'"',
 						'size' => strlen($carddata)
 					];
@@ -1608,7 +1608,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 					'carddata' => $carddata,
 					'uri' => $requestedUri,
 					'id' => (int) $obj->rowid,
-					'lastmodified' => strtotime($obj->lastupd),
+					'lastmodified' => strtotime((string) $obj->lastupd),
 					'etag' => '"'.md5($carddata).'"',
 					'size' => strlen($carddata)
 				];
@@ -1634,7 +1634,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 					'carddata' => $carddata,
 					'uri' => $requestedUri,
 					'id' => (int) $obj->rowid,
-					'lastmodified' => strtotime($obj->lastupd),
+					'lastmodified' => strtotime((string) $obj->lastupd),
 					'etag' => '"'.md5($carddata).'"',
 					'size' => strlen($carddata)
 				];
@@ -1660,7 +1660,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 					'carddata' => $carddata,
 					'uri' => $requestedUri,
 					'id' => (int) $obj->rowid,
-					'lastmodified' => strtotime($obj->lastupd),
+					'lastmodified' => strtotime((string) $obj->lastupd),
 					'etag' => '"'.md5($carddata).'"',
 					'size' => strlen($carddata)
 				];
