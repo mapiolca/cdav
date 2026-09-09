@@ -118,7 +118,7 @@ class CDavDirectory extends DAV\FS\Directory
 		foreach (new DirectoryIterator($this->path) as $entry) {
 			if (!$entry->isDot()) $this->getChild($entry->getFilename())->delete();
 		}
-		if (!rmdir($this->path)) throw new DAV\Exception('File operation failed');
+		if (!dol_delete_dir($this->path)) throw new DAV\Exception('File operation failed');
 	}
 }
 

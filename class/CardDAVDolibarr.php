@@ -1346,14 +1346,13 @@ class Dolibarr extends AbstractBackend implements SyncSupport {
 		{
 			$rdata['nom']='';
 			$names = isset($vCard->N) ? $vCard->N->getParts() : array();
-		$rdata['lastname'] = '';
-			if(!empty((string)$names[0]))
+			if(!empty($names[0]))
 				$rdata['nom'].= (string)$names[0];
-			if(!empty((string)$names[1]))
+			if(!empty($names[1]))
 				$rdata['nom'] = trim($rdata['nom']." ".(string)$names[1]);
-			if(!empty((string)$names[2]))
+			if(!empty($names[2]))
 				$rdata['nom'] = trim($rdata['nom']." ".(string)$names[2]);
-			if(!empty((string)$names[3]))
+			if(!empty($names[3]))
 				$rdata['nom'] = trim((string)$names[3]." ".$rdata['nom']);
 			if(empty($rdata['nom']))
 				$rdata['nom'] = $this->langs->transnoentities('CDavNewThirdparty');

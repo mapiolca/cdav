@@ -24,9 +24,9 @@ Les chemins `--core-htdocs` peuvent désigner les sources complètes corresponda
 | Répertoires documentaires | 8 scénarios avec configuration/helper simulés : propriétaire distinct, configuration absente, retour vide ou `error-...`, aucun repli |
 | Admission transverse | 6 scénarios simulés : compte central, entité cible, mot de passe, compte ambigu, résultat natif négatif/false/null ; aucune instance Multicompany réelle |
 | Signatures Sabre | Chargement des backends et des nœuds fichiers avec les bibliothèques réelles v16 et v24 |
-| Accès WebDAV | 7 scénarios par bibliothèque Sabre, utilisateur simulé : lecture, écritures interdites, traversée, administrateur sans droit |
-| Mutations DAV | 14 scénarios par bibliothèque Sabre, objets/base simulés : création, échec transactionnel, objet partagé, mauvais propriétaire, UID, droits et verrou |
-| Formats | 12 scénarios par bibliothèque Sabre : notes vCard, absence de N, vCard 4, accents, injection de composant, UID, stabilité des octets, dates de fin exclusives, changement d’heure et tâche sans date |
+| Accès WebDAV | 9 scénarios par bibliothèque Sabre : lecture, écritures interdites, traversée, administrateur sans droit, refus avant suppression partielle et suppression native du répertoire vide ; utilisateur simulé |
+| Mutations DAV | 15 scénarios par bibliothèque Sabre, objets/base simulés : création, échec transactionnel, objet partagé, mauvais propriétaire, UID, droits et verrou |
+| Formats | 14 scénarios par bibliothèque Sabre : tiers sans nom, durée d’intervention par défaut, notes vCard, absence de N, vCard 4, accents, injection de composant, UID, stabilité des octets, dates de fin exclusives, changement d’heure et tâche sans date |
 | CSRF | 6 scénarios par version : bloc natif de `main.inc.php` exécuté avec une session simulée ; POST/GET valides, token absent ou expiré, y compris avec option globale à 0 |
 
 L’ancien Sabre fourni par Dolibarr 16 émet sous PHP 8.4 un avertissement `continue targeting switch` dans `Component/VCard.php`. Il reste visible dans les résultats. Aucun fichier core n’a été corrigé et cet avertissement n’est pas attribué au module.

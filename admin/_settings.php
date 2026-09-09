@@ -50,7 +50,7 @@ foreach ($settings as $key => $definition) {
 print '<div class="div-table-responsive-no-min">'.$formSetup->generateOutput(true).'</div>';
 if ($cdavAdminTab === 'setup') {
 	print '<p>'.$langs->trans('CDavClientSetupHelp').'</p>';
-	print '<p><a href="'.dol_buildpath('/cdav/cdavurls.php?type=carddav', 1).'">'.$langs->trans('CardDAVurl').'</a> · <a href="'.dol_buildpath('/cdav/cdavurls.php?type=caldav', 1).'">'.$langs->trans('CalDAVurl').'</a></p>';
+	print '<p><a href="'.dol_buildpath('/cdav/cdavurls.php?type=CardDAV', 1).'">'.$langs->trans('CardDAVurl').'</a> · <a href="'.dol_buildpath('/cdav/cdavurls.php?type=CalDAV', 1).'">'.$langs->trans('CalDAVurl').'</a></p>';
 }
 print dol_get_fiche_end();
 llxFooter();

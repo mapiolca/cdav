@@ -12,6 +12,7 @@ class FormatLang { public function load($file) {} public function transnoentitie
 class FormatDb { public function query($sql) { return false; } }
 class FormatCards extends \Sabre\CardDAV\Backend\Dolibarr {
 	public function parse($body) { return $this->_parseDataContact($body, 'C'); }
+	public function parseThirdparty($body) { return $this->_parseDataThirdparty($body, 'C'); }
 }
 $cards = new FormatCards((object) array('id' => 1), new FormatDb(), new FormatLang());
 // Ignore deprecations inside historical Sabre itself, never those in CDav.
@@ -28,6 +29,8 @@ checkFormat($parsed['_uid'] === 'stable-card', 'Technical UID');
 checkFormat($parsed['note_public'] === "une ligne\ndeux lignes", 'Native note decoding must not replace every letter n');
 $card4 = str_replace('VERSION:3.0', 'VERSION:4.0', $card);
 checkFormat($cards->parse($card4)['_uid'] === 'stable-card', 'vCard 4 conversion');
+$unnamed = $cards->parseThirdparty("BEGIN:VCARD\r\nVERSION:3.0\r\nUID:unnamed\r\nFN:\r\nEND:VCARD\r\n");
+checkFormat($unnamed['nom'] !== '' && !isset($unnamed['lastname']), 'Unnamed third party has a label without contact fields');
 $lib = new CdavLib(null, null, new FormatLang());
 $row = (object) array('elem_source' => 'ev', 'id' => 4, 'percent' => -1, 'label' => "Événement, test; \\ chemin\nEND:VEVENT\nBEGIN:VEVENT", 'sourceuid' => 'stable-event', 'datep' => '2026-03-29 00:00:00', 'datep2' => '2026-03-29 23:59:59', 'datec' => '2026-03-01 10:00:00', 'lastupd' => '2026-03-02 10:00:00', 'fulldayevent' => 1, 'location' => null, 'address' => null, 'note' => null);
 date_default_timezone_set('Europe/Paris');
@@ -46,4 +49,8 @@ $row->proj_title = 'Projet'; $row->description = null;
 $calendar = \Sabre\VObject\Reader::read($lib->toVCalendar(1, $row, true));
 checkFormat(isset($calendar->VTODO) && !isset($calendar->VTODO->DTSTART), 'Undated task');
 checkFormat((string) $calendar->VTODO->UID === '4-pt-stable', 'Task UID unchanged');
+$row->elem_source = 'fi'; $row->det_date = '2026-03-29 10:00:00'; $row->det_duree = 0;
+$row->det_description = ''; $row->fi_ref = 'FI-test'; $row->fi_description = ''; $row->soc_nom = '';
+$calendar = \Sabre\VObject\Reader::read($lib->toVCalendar(1, $row, true));
+checkFormat($calendar->VEVENT->DTEND->getDateTime()->getTimestamp() - $calendar->VEVENT->DTSTART->getDateTime()->getTimestamp() === 3600, 'Unspecified intervention duration retains one-hour default');
 echo "$checks format checks passed (real Sabre, simulated rows).\n";

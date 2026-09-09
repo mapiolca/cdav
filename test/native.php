@@ -104,10 +104,11 @@ function refused($operation, $exception) {
 	try { $operation(); } catch (Throwable $error) { verify($error instanceof $exception, get_class($error).': '.$error->getMessage()); return; }
 	throw new RuntimeException('Operation should have been refused');
 }
-$card = array('_uid' => 'external-contact', 'lastname' => 'Müller');
+$card = array('_uid' => 'external-contact', 'lastname' => 'Müller', 'priv' => 1);
 $backend->card('contact.vcf', $card);
 $id = NativeTestObject::$nextId - 1;
 verify(NativeTestObject::$stored[$id]->entity === 2 && NativeTestObject::$stored[$id]->lastname === 'Müller', 'Contact creation belongs to target');
+verify(NativeTestObject::$stored[$id]->priv === 1, 'Private contact remains private');
 $db->failMetadata = true; $count = count(NativeTestObject::$stored);
 refused(static function () use ($backend, $card) { $backend->card('failure.vcf', $card); }, \Sabre\DAV\Exception\Conflict::class);
 verify(count(NativeTestObject::$stored) === $count && $db->rollbacks === 1, 'Metadata failure rolls back native creation');

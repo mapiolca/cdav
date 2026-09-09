@@ -26,7 +26,7 @@ CONTRACTS = {
     "Project validation": ("htdocs/projet/class/project.class.php", ["function setValid(", "PROJECT_VALIDATE", "getProjectsAuthorizedForUser"]),
     "Native interventions": ("htdocs/fichinter/class/fichinter.class.php", ["class FichinterLigne", "function update(", "update_total"]),
     "Assignments": ("htdocs/core/class/commonobject.class.php", ["function liste_contact(", "function add_contact(", "function delete_contact(", "public $oldcopy;"]),
-    "Documents": ("htdocs/core/lib/files.lib.php", ["function dol_move(", "function dol_delete_file(", "function addFileIntoDatabaseIndex(", "function dol_check_secure_access_document("]),
+    "Documents": ("htdocs/core/lib/files.lib.php", ["function dol_move(", "function dol_delete_file(", "function dol_delete_dir(", "function addFileIntoDatabaseIndex(", "function dol_check_secure_access_document("]),
     "Task numbering": ("htdocs/core/modules/project/task/mod_task_simple.php", ["function getNextValue("]),
     "Sabre CalDAV": ("htdocs/includes/sabre/sabre/dav/lib/CalDAV/Backend/BackendInterface.php", ["function getCalendarsForUser(", "function getCalendarObjects(", "function createCalendarObject(", "function updateCalendarObject(", "function deleteCalendarObject("]),
     "Sabre CardDAV": ("htdocs/includes/sabre/sabre/dav/lib/CardDAV/Backend/BackendInterface.php", ["function getAddressBooksForUser(", "function getCards(", "function createCard(", "function updateCard(", "function deleteCard("]),

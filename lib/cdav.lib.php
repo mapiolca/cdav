@@ -285,7 +285,7 @@ class CdavLib
 		$utc = new DateTimeZone('UTC');
 		$start = $startValue ? new DateTimeImmutable($startValue, $timezone) : null;
 		$end = $endValue ? new DateTimeImmutable($endValue, $timezone) : null;
-		if ($source === 'fi' && $start) $end = $start->modify('+'.max(1, (int) $obj->det_duree).' seconds');
+		if ($source === 'fi' && $start) $end = $start->modify('+'.((int) $obj->det_duree > 0 ? (int) $obj->det_duree : 3600).' seconds');
 		$fullday = $source === 'ev' && !empty($obj->fulldayevent);
 		if ($start) {
 			if ($fullday) $component->add('DTSTART', $start->format('Ymd'), array('VALUE' => 'DATE'));

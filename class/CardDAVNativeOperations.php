@@ -69,7 +69,7 @@ trait CardDAVNativeOperations
 		$object = $this->loadNativeCard($kind, $id);
 		$object->oldcopy = clone $object;
 		$aliases = array('nom' => 'name', 'fk_pays' => 'country_id', 'country' => 'country_id', 'civility' => 'civility_code');
-		$allowed = array('lastname', 'firstname', 'nom', 'name_alias', 'civility', 'poste', 'phone', 'phone_perso', 'phone_mobile', 'fax', 'email', 'url', 'address', 'town', 'zip', 'fk_pays', 'country', 'birthday', 'birth', 'note_public', 'statut', 'status');
+		$allowed = array('lastname', 'firstname', 'nom', 'name_alias', 'civility', 'poste', 'phone', 'phone_perso', 'phone_mobile', 'fax', 'email', 'url', 'address', 'town', 'zip', 'fk_pays', 'country', 'birthday', 'birth', 'note_public', 'statut', 'status', 'priv');
 		foreach ($allowed as $field) {
 			if (!array_key_exists($field, $values)) continue;
 			$property = $aliases[$field] ?? $field;
