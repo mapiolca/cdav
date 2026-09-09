@@ -112,3 +112,5 @@ CDAV_GENTASK_INI3=Anfangsdienstleistung 3
 CDAV_GENTASK_END1=Abschlussdienstleistung 1
 CDAV_GENTASK_END2=Abschlussdienstleistung 2
 CDAV_GENTASK_END3=Abschlussdienstleistung 3
+CDavInvalidPhoto=Ungültiges oder zu großes Bild.
+CDavMemberTypeRequired=Zum Erstellen eines Mitglieds muss genau ein Mitgliedstyp verfügbar sein.

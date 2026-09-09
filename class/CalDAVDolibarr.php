@@ -141,6 +141,8 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 	 * @return array
 	 */
 	function getCalendarsForUser($principalUri) {
+		if ($principalUri !== 'principals/'.$this->user->login) return array();
+
 
 		global $conf;
 
@@ -148,10 +150,10 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 
 		$calendars = [];
 
-		if(! $this->user->rights->agenda->myactions->read)
+		if(!\CDavCompatibility::isFeatureAvailable('caldav') || !$this->user->hasRight('agenda', 'myactions', 'read'))
 			return $calendars;
 
-		if(!isset($this->user->rights->agenda->allactions->read) || !$this->user->rights->agenda->allactions->read)
+		if(!$this->user->hasRight('agenda', 'allactions', 'read'))
 			$onlyme = true;
 		else
 			$onlyme = false;
@@ -166,7 +168,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 						AND a.entity IN ('.getEntity('agenda', 1).')
 						AND a.code IN (SELECT cac.code FROM '.MAIN_DB_PREFIX.'c_actioncomm cac WHERE cac.type<>"systemauto")
 						AND ar.fk_element = u.rowid) as lastupd_ev, ';
-		if(!empty($conf->project->enabled) && (!isset($conf->global->PROJECT_HIDE_TASKS) || !$conf->global->PROJECT_HIDE_TASKS) && intval(CDAV_TASK_SYNC)>0)
+		if(isModEnabled('project') && (!isset($conf->global->PROJECT_HIDE_TASKS) || !$conf->global->PROJECT_HIDE_TASKS) && intval(CDAV_TASK_SYNC)>0)
 		{
 			$sql.='(SELECT MAX(pt.tms)
 						FROM '.MAIN_DB_PREFIX.'projet_task AS pt
@@ -179,7 +181,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 		{
 			$sql.='"1970-01-01 00:00:00" as lastupd_p, ';
 		}
-		if(!empty($conf->ficheinter->enabled) && intval(CDAV_INTERV_SYNC)>0)
+		if(isModEnabled('ficheinter') && intval(CDAV_INTERV_SYNC)>0)
 		{
 			$sql.='(SELECT MAX(fi.tms)
 						FROM '.MAIN_DB_PREFIX.'fichinter AS fi
@@ -192,12 +194,12 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 		{
 			$sql.='"1970-01-01 00:00:00" as lastupd_fi';
 		}
-		$sql.= ' FROM '.MAIN_DB_PREFIX.'user u WHERE u.statut>0';
+		$sql.= ' FROM '.MAIN_DB_PREFIX.'user u WHERE '.\cdavCalendarUserScope();
 		if($onlyme)
 			$sql .= ' AND u.rowid='.$this->user->id;
 
 		$result = $this->db->query($sql);
-		while($row = $this->db->fetch_array($result))
+		while($result && ($row = $this->db->fetch_array($result)))
 		{
 			$lastupd = strtotime(max($row['lastupd_ev'],$row['lastupd_p'],$row['lastupd_fi']));
 
@@ -339,6 +341,8 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 	 * @return array|null
 	 */
 	function getCalendarObject($calendarId, $objectUri) {
+		if (!in_array((int) $calendarId, $this->_getCalendarsIdForUser(), true)) return null;
+
 
 		debug_log("getCalendarObject( $calendarId , $objectUri )");
 
@@ -367,10 +371,10 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 
 		$calevent = null ;
 
-		if(! $this->user->rights->agenda->myactions->read)
+		if(!\CDavCompatibility::isFeatureAvailable('caldav') || !$this->user->hasRight('agenda', 'myactions', 'read'))
 			return $calevent;
 
-		if($calid!=$this->user->id && (!isset($this->user->rights->agenda->allactions->read) || !$this->user->rights->agenda->allactions->read))
+		if($calid!=$this->user->id && (!$this->user->hasRight('agenda', 'allactions', 'read')))
 			return $calevent;
 
 		if($elem_source=='ev') // Calendar Events
@@ -525,7 +529,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 					$oid = intval($row->fk_object??0);
 			}
 
-			if(!$oid || $iOccur>0)	// new event 
+			if(!$oid || $iOccur>0)	// new event
 			{
 				if((float) DOL_VERSION >= 14.0)
 				{
@@ -661,7 +665,7 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 		if ( ! in_array($calendarId, $this->_getCalendarsIdForUser()))
 		{
             debug_log('User '.$this->user->id.' not authorized to update calendar '.$calendarId);
-            debug_log(print_r($this->user->rights, true));
+
 			// not authorized
 			return;
 		}
@@ -847,24 +851,24 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 
 		$calendars = [];
 
-		if(! $this->user->rights->agenda->myactions->read)
+		if(!\CDavCompatibility::isFeatureAvailable('caldav') || !$this->user->hasRight('agenda', 'myactions', 'read'))
 			return $calendars;
 
-		if(!isset($this->user->rights->agenda->allactions->read) || !$this->user->rights->agenda->allactions->read)
+		if(!$this->user->hasRight('agenda', 'allactions', 'read'))
 			$onlyme = true;
 		else
 			$onlyme = false;
 
 		$sql = 'SELECT
 					u.rowid
-				FROM '.MAIN_DB_PREFIX.'user u WHERE u.statut>0';
+				FROM '.MAIN_DB_PREFIX.'user u WHERE '.\cdavCalendarUserScope();
 		if($onlyme)
 			$sql .= ' AND u.rowid='.$this->user->id;
 
 		$result = $this->db->query($sql);
-		while($row = $this->db->fetch_array($result))
+		while($result && ($row = $this->db->fetch_array($result)))
 		{
-			$calendars[] = $row['rowid'];
+			$calendars[] = (int) $row['rowid'];
 		}
 
 		return $calendars;
@@ -1073,9 +1077,9 @@ class Dolibarr extends AbstractBackend implements SyncSupport, SubscriptionSuppo
 				}
 			}
 		}
-		
-		
-		
+
+
+
 		$ret = array(
 			'etag'           	=> md5($calendarData),
 			'size'           	=> strlen($calendarData),

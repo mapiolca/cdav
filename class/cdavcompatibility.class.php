@@ -33,7 +33,7 @@ class CDavCompatibility
 			'tasks' => array('label' => 'CDavTasks', 'available' => $base && isModEnabled('agenda') && isModEnabled('project') && !getDolGlobalInt('PROJECT_HIDE_TASKS') && getDolGlobalInt('CDAV_TASK_SYNC') > 0, 'reason' => 'CDavRequiresTasks'),
 			'interventions' => array('label' => 'CDavInterventions', 'available' => $base && isModEnabled('agenda') && isModEnabled('ficheinter') && getDolGlobalInt('CDAV_INTERV_SYNC') > 0, 'reason' => 'CDavRequiresInterventions'),
 			'gentask' => array('label' => 'CDavGenerateTasks', 'available' => $runtime && isModEnabled('cdav') && isModEnabled('project') && isModEnabled('service') && getDolGlobalInt('CDAV_GENTASK') > 0, 'reason' => 'CDavRequiresGeneration'),
-			'photos' => array('label' => 'CDavPhotos', 'available' => $base && extension_loaded('gd'), 'reason' => 'CDavRequiresGD'),
+			'photos' => array('label' => 'CDavPhotos', 'available' => $base && extension_loaded('gd') && extension_loaded('exif'), 'reason' => 'CDavRequiresGD'),
 			'ics' => array('label' => 'ICS', 'available' => $base && isModEnabled('agenda') && extension_loaded('openssl') && getDolGlobalString('CDAV_URI_KEY') !== '', 'reason' => 'CDavRequiresICS'),
 			'directories' => array('label' => 'CDavDirectories', 'available' => $directories, 'reason' => 'CDavRequiresDirectories'),
 			'qrcode' => array('label' => 'CDavQRCode', 'available' => $base && extension_loaded('gd') && is_readable(DOL_DOCUMENT_ROOT.'/core/modules/barcode/doc/tcpdfbarcode.modules.php'), 'reason' => 'CDavRequiresQRCode'),

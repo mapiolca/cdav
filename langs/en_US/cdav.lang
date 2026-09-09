@@ -112,3 +112,5 @@ CDAV_GENTASK_INI3=Initial service 3
 CDAV_GENTASK_END1=Final service 1
 CDAV_GENTASK_END2=Final service 2
 CDAV_GENTASK_END3=Final service 3
+CDavInvalidPhoto=Invalid or oversized image.
+CDavMemberTypeRequired=Creating a member requires exactly one available membership type.

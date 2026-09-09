@@ -59,7 +59,7 @@ class CdavLib
 						LEFT OUTER JOIN '.MAIN_DB_PREFIX.'user AS u ON (u.rowid=fk_element)
 						WHERE ar.element_type=\'user\' AND fk_actioncomm=a.id) AS other_users
 				FROM '.MAIN_DB_PREFIX.'actioncomm AS a';
-		if (! $this->user->rights->societe->client->voir )//FIXME si 'voir' on voit plus de chose ?
+		if (! $this->user->hasRight('societe', 'client', 'voir') )//FIXME si 'voir' on voit plus de chose ?
 		{
 			$sql.=' LEFT OUTER JOIN '.MAIN_DB_PREFIX.'societe_commerciaux AS sc ON (a.fk_soc = sc.fk_soc AND sc.fk_user='.$this->user->id.')
 					LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON (s.rowid = sc.fk_soc)
@@ -106,11 +106,11 @@ class CdavLib
 	 * @param string elem_source 'pt'=Project TODO  'pe'=Project EVENT
 	 * @return string
 	 */
-	public function getSqlProjectTasks($calid, $oid=false, $elem_source)
+	public function getSqlProjectTasks($calid, $oid=false, $elem_source='pe')
 	{
 		global $conf;
 
-		if(empty($conf->project->enabled) || (isset($conf->global->PROJECT_HIDE_TASKS) && $conf->global->PROJECT_HIDE_TASKS))
+		if(!CDavCompatibility::isFeatureAvailable('tasks') || !$this->user->hasRight('projet', 'lire'))
 			return false;
 
 		if(intval(CDAV_TASK_SYNC)==0 || (intval(CDAV_TASK_SYNC)==1 && $elem_source=='pt'))
@@ -174,7 +174,7 @@ class CdavLib
 	{
 		global $conf;
 
-		if(empty($conf->ficheinter->enabled))
+		if(!isModEnabled('ficheinter'))
 			return false;
 
 		if(intval(CDAV_INTERV_SYNC)==0)
@@ -549,11 +549,14 @@ class CdavLib
 		$calevents = [] ;
 		$rSql = [] ;
 
-		if(! $this->user->rights->agenda->myactions->read)
+		if(!CDavCompatibility::isFeatureAvailable('caldav') || !$this->user->hasRight('agenda', 'myactions', 'read'))
 			return $calevents;
 
-		if($calid!=$this->user->id && (!isset($this->user->rights->agenda->allactions->read) || !$this->user->rights->agenda->allactions->read))
+		if($calid!=$this->user->id && (!$this->user->hasRight('agenda', 'allactions', 'read')))
 			return $calevents;
+
+		$users = $this->db->query('SELECT u.rowid FROM '.MAIN_DB_PREFIX.'user u WHERE '.cdavCalendarUserScope().' AND u.rowid='.(int) $calid);
+		if (!$users || !is_object($this->db->fetch_object($users))) return $calevents;
 
 		$rSql['ev'] = $this->getSqlCalEvents($calid);
 		$rSql['pe'] = $this->getSqlProjectTasks($calid, false, 'pe');
@@ -620,7 +623,7 @@ function cdavEntityUriSegment($entity = 0)
 	if(function_exists('isModEnabled'))
 		$multicompany = isModEnabled('multicompany');
 	else
-		$multicompany = !empty($conf->multicompany->enabled);
+		$multicompany = isModEnabled('multicompany');
 
 	if(!$multicompany)
 		return '';
@@ -629,4 +632,23 @@ function cdavEntityUriSegment($entity = 0)
 		$entity = (empty($conf->entity) ? 1 : $conf->entity);
 
 	return '/'.((int) $entity);
+}
+
+/**
+ * SQL scope for the active internal users discoverable in the target entity.
+ * Transverse assignments live in usergroup_user, not in user.entity.
+ * The caller must independently enforce its functional permission.
+ * @return string SQL predicate, using the fixed alias u
+ */
+function cdavCalendarUserScope()
+{
+	global $db;
+	$sql = 'u.statut=1 AND u.fk_soc IS NULL';
+	if (isModEnabled('multicompany') && getDolGlobalInt('MULTICOMPANY_TRANSVERSE_MODE')) {
+		$sql .= ' AND (u.entity=0 OR EXISTS (SELECT 1 FROM '.MAIN_DB_PREFIX.'usergroup_user cug'
+			.' WHERE cug.fk_user=u.rowid AND cug.entity IN ('.$db->sanitize(getEntity('usergroup')).')))';
+	} else {
+		$sql .= ' AND u.entity IN ('.$db->sanitize(getEntity('user', 1)).')';
+	}
+	return $sql;
 }
