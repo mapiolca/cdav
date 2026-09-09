@@ -10,11 +10,11 @@
  *
  * cdav uses Sabre/dav library http://sabre.io/dav/
  * Sabre/dav is distributed under use the three-clause BSD-license
- * 
+ *
  * Author : Befox SARL http://www.befox.fr/
  *
  ******************************************************************/
- 
+
 define('NOTOKENRENEWAL',1); 								// Disables token renewal
 if (! defined('NOLOGIN')) define('NOLOGIN','1');
 if (! defined('NOCSRFCHECK')) define('NOCSRFCHECK','1');	// We accept to go on this page from external web site.
@@ -27,9 +27,7 @@ if (! defined('NOSESSION')) define('NOSESSION','1');
 function llxHeader() { }
 function llxFooter() { }
 
-function base64url_decode($data) {
-  return base64_decode(str_pad(strtr($data, '-_', '+/'), strlen($data) % 4, '=', STR_PAD_RIGHT));
-} 
+
 
 // Multicompany : the entity is given as a plain url parameter (the token can not carry it,
 // it is only decipherable once CDAV_URI_KEY is known, ie after Dolibarr is loaded).
@@ -77,7 +75,7 @@ if (!$res) {
 require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 
 // Load traductions files requiredby by page
-$langs->load("cdav");
+
 
 
 //Get all event
@@ -97,14 +95,20 @@ require __DIR__.'/lib/cdav_constants.php';
 // 2*CDAV_ADDRESSBOOK_ID_SHIFT < 3*CDAV_ADDRESSBOOK_ID_SHIFT = Members
 define('CDAV_ADDRESSBOOK_ID_SHIFT', 100000);
 
-//parse Token
-$arrTmp = explode('+Ã¸+', openssl_decrypt(base64url_decode(GETPOST('token', 'alphanohtml')), 'aes-256-cbc', CDAV_URI_KEY, OPENSSL_RAW_DATA, str_repeat(chr(0), 16)));
-
-if(!is_array($arrTmp) || count($arrTmp)<2)
-{
-	// use old encryption algo bf-ecb
-	$arrTmp = explode('+Ã¸+', openssl_decrypt(base64url_decode(GETPOST('token', 'alphanohtml')), 'bf-ecb', CDAV_URI_KEY, OPENSSL_RAW_DATA, ''));
+// Existing shared links retain their historical encryption and payload format.
+$token = GETPOST('token', 'alphanohtml');
+if (!is_string($token) || strlen($token) > 2048 || !preg_match('/^[A-Za-z0-9_-]+$/D', $token)) {
+	http_response_code(403);
+	exit;
 }
+$encrypted = base64_decode(strtr($token, '-_', '+/'), true);
+$payload = $encrypted === false ? false : openssl_decrypt($encrypted, 'aes-256-cbc', CDAV_URI_KEY, OPENSSL_RAW_DATA, str_repeat(chr(0), 16));
+if ($payload === false && in_array('bf-ecb', openssl_get_cipher_methods(), true)) {
+	$payload = openssl_decrypt($encrypted, 'bf-ecb', CDAV_URI_KEY, OPENSSL_RAW_DATA, '');
+}
+$arrTmp = is_string($payload) ? explode('+ø+', $payload) : array();
+// Also accept the historical double-encoded separator from older installations.
+if (count($arrTmp) !== 2 && is_string($payload)) $arrTmp = explode('+Ã¸+', $payload);
 
 if (! isset($arrTmp[1]) || ! in_array(trim($arrTmp[1]), array('nolabel', 'full')))
 {
@@ -147,7 +151,7 @@ require_once DOL_DOCUMENT_ROOT.'/includes/sabre/autoload.php';
 $calendar = new \Sabre\VObject\Component\VCalendar();
 $calendar->PRODID = '-//Dolibarr CDav//FR';
 foreach ($cdavLib->getFullCalendarObjects($id, true) as $event) {
-	$source = \Sabre\VObject\Reader::read("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n".$event['calendardata']."END:VCALENDAR\r\n");
+	$source = \Sabre\VObject\Reader::read($event['calendardata']);
 	foreach ($source->getComponents() as $component) {
 		if ($type === 'nolabel') {
 			$component->SUMMARY = $langs->transnoentities('Busy');

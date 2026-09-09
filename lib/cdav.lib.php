@@ -31,7 +31,15 @@ class CdavLib
 	 */
 	public function getSqlCalEvents($calid, $oid=false, $ouri=false)
 	{
-		// TODO : replace GROUP_CONCAT by
+		global $conf;
+		$projectIds = '0';
+		if (isModEnabled('project') && $this->user->hasRight('projet', 'lire')) {
+			require_once DOL_DOCUMENT_ROOT.'/projet/class/project.class.php';
+			$project = new Project($this->db);
+			$authorized = $project->getProjectsAuthorizedForUser($this->user, $this->user->hasRight('projet', 'all', 'lire') ? 2 : 0, 1);
+			$projectIds = $authorized ? $this->db->sanitize($authorized) : '0';
+		}
+
 		$sql = 'SELECT
 					"ev" elem_source,
 					a.tms AS lastupd,
@@ -62,18 +70,18 @@ class CdavLib
 		if (! $this->user->hasRight('societe', 'client', 'voir') )//FIXME si 'voir' on voit plus de chose ?
 		{
 			$sql.=' LEFT OUTER JOIN '.MAIN_DB_PREFIX.'societe_commerciaux AS sc ON (a.fk_soc = sc.fk_soc AND sc.fk_user='.$this->user->id.')
-					LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON (s.rowid = sc.fk_soc)
-					LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.fk_soc = sc.fk_soc AND sp.rowid = a.fk_contact)
+					LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON (s.rowid = sc.fk_soc AND s.entity IN ('.getEntity('societe').') AND '.($this->user->hasRight('societe', 'lire') ? '1' : '0').')
+					LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.fk_soc = sc.fk_soc AND sp.rowid = a.fk_contact AND sp.entity IN ('.getEntity('socpeople').') AND '.($this->user->hasRight('societe', 'contact', 'lire') ? '1' : '0').')
 					LEFT JOIN '.MAIN_DB_PREFIX.'actioncomm_cdav AS ac ON (a.id = ac.fk_object)';
 		}
 		else
 		{
-			$sql.=' LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON (s.rowid = a.fk_soc)
-					LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.rowid = a.fk_contact)
+			$sql.=' LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON (s.rowid = a.fk_soc AND s.entity IN ('.getEntity('societe').') AND '.($this->user->hasRight('societe', 'lire') ? '1' : '0').')
+					LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.rowid = a.fk_contact AND sp.entity IN ('.getEntity('socpeople').') AND '.($this->user->hasRight('societe', 'contact', 'lire') ? '1' : '0').')
 					LEFT JOIN '.MAIN_DB_PREFIX.'actioncomm_cdav AS ac ON (a.id = ac.fk_object)';
 		}
 
-		$sql.=' LEFT JOIN '.MAIN_DB_PREFIX.'projet AS p ON (p.rowid = a.fk_project)
+		$sql.=' LEFT JOIN '.MAIN_DB_PREFIX.'projet AS p ON (p.rowid = a.fk_project AND p.entity IN ('.getEntity('project').') AND p.rowid IN ('.$projectIds.'))
 				LEFT JOIN '.MAIN_DB_PREFIX.'c_country as co ON co.rowid = sp.fk_pays
 				LEFT JOIN '.MAIN_DB_PREFIX.'c_country as cos ON cos.rowid = s.fk_pays
 				WHERE 	a.id IN (SELECT ar.fk_actioncomm FROM '.MAIN_DB_PREFIX.'actioncomm_resources ar WHERE ar.element_type=\'user\' AND ar.fk_element='.intval($calid).')
@@ -86,7 +94,7 @@ class CdavLib
 			}
 			else
 			{
-				$sql.=' AND (a.id = '.intval($oid).' OR ac.uuidext = \''.$this->db->escape($ouri).'\' OR ac.sourceuid = \''.$this->db->escape($ouri).'\')';
+				$sql.=' AND a.entity = '.((int) $conf->entity).' AND (ac.uuidext = \''.$this->db->escape($ouri).'\' OR ac.sourceuid = \''.$this->db->escape($ouri).'\')';
 			}
 		}
 		else
@@ -120,7 +128,7 @@ class CdavLib
 			return false;
 
 		// TODO : replace GROUP_CONCAT by
-		$sql = 'SELECT
+		$sql = 'SELECT DISTINCT
 					"'.$elem_source.'" elem_source,
 					pt.rowid AS id,
 					pt.tms AS lastupd,
@@ -140,16 +148,20 @@ class CdavLib
 						WHERE gec.element_id=pt.rowid AND gtc.element="project_task" AND u.login IS NOT NULL) AS other_users,
 					(SELECT GROUP_CONCAT(sp.firstname, " ", sp.lastname) FROM '.MAIN_DB_PREFIX.'element_contact gec
 						LEFT JOIN '.MAIN_DB_PREFIX.'c_type_contact as gtc ON (gtc.rowid=gec.fk_c_type_contact AND gtc.element="project_task" AND gtc.source="external")
-						LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.rowid=gec.fk_socpeople)
+						LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.rowid=gec.fk_socpeople AND sp.entity IN ('.getEntity('socpeople').') AND '.($this->user->hasRight('societe', 'contact', 'lire') ? '1' : '0').')
 						WHERE gec.element_id=pt.rowid AND gtc.element="project_task" AND sp.lastname IS NOT NULL) AS other_contacts
 				FROM '.MAIN_DB_PREFIX.'projet_task AS pt
 				LEFT JOIN '.MAIN_DB_PREFIX.'projet AS p ON (p.rowid = pt.fk_projet)
-				LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON (s.rowid = p.fk_soc)
+				LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON (s.rowid = p.fk_soc AND s.entity IN ('.getEntity('societe').') AND '.($this->user->hasRight('societe', 'lire') ? '1' : '0').')
 				LEFT JOIN '.MAIN_DB_PREFIX.'c_country as cos ON cos.rowid = s.fk_pays
 				LEFT JOIN '.MAIN_DB_PREFIX.'element_contact as ec ON (ec.element_id=pt.rowid)
 				LEFT JOIN '.MAIN_DB_PREFIX.'c_type_contact as tc ON (tc.rowid=ec.fk_c_type_contact AND tc.element="project_task" AND tc.source="internal")
 				WHERE tc.element="project_task" AND tc.source="internal" AND ec.fk_socpeople='.intval($calid).'
-				AND pt.entity IN ('.getEntity('project', 1).')';
+				AND pt.entity IN ('.getEntity('project', 1).') AND p.entity IN ('.getEntity('project', 1).')';
+		require_once DOL_DOCUMENT_ROOT.'/projet/class/project.class.php';
+		$project = new Project($this->db);
+		$authorized = $project->getProjectsAuthorizedForUser($this->user, $this->user->hasRight('projet', 'all', 'lire') ? 2 : 0, 1);
+		$sql .= ' AND p.rowid IN ('.($authorized ? $this->db->sanitize($authorized) : '0').')';
 		if($oid!==false)
 		{
 			$sql.=' AND pt.rowid = '.intval($oid);
@@ -173,14 +185,22 @@ class CdavLib
 	public function getSqlIntervEvents($calid, $oid=false)
 	{
 		global $conf;
+		$projectIds = '0';
+		if (isModEnabled('project') && $this->user->hasRight('projet', 'lire')) {
+			require_once DOL_DOCUMENT_ROOT.'/projet/class/project.class.php';
+			$project = new Project($this->db);
+			$authorized = $project->getProjectsAuthorizedForUser($this->user, $this->user->hasRight('projet', 'all', 'lire') ? 2 : 0, 1);
+			$projectIds = $authorized ? $this->db->sanitize($authorized) : '0';
+		}
 
-		if(!isModEnabled('ficheinter'))
+
+		if(!CDavCompatibility::isFeatureAvailable('interventions') || !$this->user->hasRight('ficheinter', 'lire'))
 			return false;
 
 		if(intval(CDAV_INTERV_SYNC)==0)
 			return false;
 
-		$sql = 'SELECT
+		$sql = 'SELECT DISTINCT
 					"fi" elem_source,
 					fid.rowid AS id,
 					fi.rowid AS fi_id,
@@ -207,12 +227,12 @@ class CdavLib
 						WHERE gec.element_id=fi.rowid AND gtc.element="fichinter" AND u.login IS NOT NULL) AS other_users,
 					(SELECT GROUP_CONCAT(sp.firstname, " ", sp.lastname) FROM '.MAIN_DB_PREFIX.'element_contact gec
 						LEFT JOIN '.MAIN_DB_PREFIX.'c_type_contact as gtc ON (gtc.rowid=gec.fk_c_type_contact AND gtc.element="fichinter" AND gtc.source="external")
-						LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.rowid=gec.fk_socpeople)
+						LEFT JOIN '.MAIN_DB_PREFIX.'socpeople AS sp ON (sp.rowid=gec.fk_socpeople AND sp.entity IN ('.getEntity('socpeople').') AND '.($this->user->hasRight('societe', 'contact', 'lire') ? '1' : '0').')
 						WHERE gec.element_id=fi.rowid AND gtc.element="fichinter" AND sp.lastname IS NOT NULL) AS other_contacts
 				FROM '.MAIN_DB_PREFIX.'fichinter AS fi
 				INNER JOIN '.MAIN_DB_PREFIX.'fichinterdet AS fid ON fid.fk_fichinter = fi.rowid
-				LEFT JOIN '.MAIN_DB_PREFIX.'projet AS p ON (p.rowid = fi.fk_projet)
-				LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON (s.rowid = fi.fk_soc)
+				LEFT JOIN '.MAIN_DB_PREFIX.'projet AS p ON (p.rowid = fi.fk_projet AND p.entity IN ('.getEntity('project').') AND p.rowid IN ('.$projectIds.'))
+				LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON (s.rowid = fi.fk_soc AND s.entity IN ('.getEntity('societe').') AND '.($this->user->hasRight('societe', 'lire') ? '1' : '0').')
 				LEFT JOIN '.MAIN_DB_PREFIX.'c_country as cos ON cos.rowid = s.fk_pays
 				LEFT JOIN '.MAIN_DB_PREFIX.'element_contact as ec ON (ec.element_id=fi.rowid)
 				LEFT JOIN '.MAIN_DB_PREFIX.'c_type_contact as gtc ON (gtc.rowid=ec.fk_c_type_contact AND gtc.element="fichinter" AND gtc.source="internal")
@@ -573,7 +593,7 @@ class CdavLib
 			{
 				while ($obj = $this->db->fetch_object($result))
 				{
-					$calendardata = $this->toVCalendar($calid, $obj, false);
+					$calendardata = $this->toVCalendar($calid, $obj, true);
 
 					if($bCalendarData)
 					{
@@ -620,10 +640,7 @@ function cdavEntityUriSegment($entity = 0)
 {
 	global $conf;
 
-	if(function_exists('isModEnabled'))
-		$multicompany = isModEnabled('multicompany');
-	else
-		$multicompany = isModEnabled('multicompany');
+	$multicompany = isModEnabled('multicompany');
 
 	if(!$multicompany)
 		return '';

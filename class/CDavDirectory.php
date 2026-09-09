@@ -49,6 +49,7 @@ trait CDavFileContext
 	public function setName($name)
 	{
 		if (!$this->davUser->hasRight(...$this->writeRight) || !$this->davUser->hasRight(...$this->deleteRight) || $this->path === $this->root) throw new DAV\Exception\Forbidden();
+		if (is_file($this->path) && strtolower(pathinfo($name, PATHINFO_EXTENSION)) !== strtolower(pathinfo($this->path, PATHINFO_EXTENSION))) throw new DAV\Exception\Forbidden();
 		$target = dirname($this->path).'/'.$name;
 		$this->childPath($name); $this->checkPath($this->path, 'write'); $this->checkPath($target, 'write');
 		if (is_dir($this->path) ? dol_move_dir($this->path, $target, 0) < 0 : !dol_move($this->path, $target, 0, 0, 1)) throw new DAV\Exception('File operation failed');
