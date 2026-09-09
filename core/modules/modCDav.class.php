@@ -100,7 +100,8 @@ class modCDav extends DolibarrModules
 		//							'workflow' => array('WORKFLOW_MODULE1_YOURACTIONTYPE_MODULE2'=>array('enabled'=>'! empty($conf->module1->enabled) && ! empty($conf->module2->enabled)', 'picto'=>'yourpicto@mymodule')) // Set here all workflow context managed by module
 		//                        );
 		$this->module_parts = array(
-			'hooks' => array('projectcard', 'projecttaskscard'),
+			'hooks' => array('projecttaskscard'),
+			'triggers' => 1,
 		);
 
 		// Data directories to create when module is enabled.

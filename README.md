@@ -45,6 +45,10 @@ Durations are retrieved from service's card if defined (minutes, hours, days or 
 All tasks are begining at the starting date of the project, at the begining of the working day
 Multi-day durations tasks are maintained as a single task, eg from 31/07/2018 at 8am to 02/08/2018 at 7pm
  
+Task generation uses the native `PROJECT_VALIDATE` trigger. It runs in the project validation transaction, from the project's owning entity, and requires project read/write and service read permissions, plus read access to enabled order/proposal modules. Existing tasks prevent a second generation. A failed creation or assignment rolls back the whole validation. No cron is needed. Task references come from the configured native numbering model.
+
+The service duration override is used only when enabled. Initial and final services are checked against the native product sharing scope. A zero starting hour or duration is retained; malformed durations produce an error instead of an arbitrary schedule.
+
 Usage :
 
  * Manually create a project, link it to a third party, and set up the date ; leave it in draft status
