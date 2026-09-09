@@ -96,7 +96,7 @@ print '<p>'.$langs->trans('CDavEntitySettings', (int) $conf->entity).'</p>';
 $urls = array();
 if ($type !== 'ICS') {
 	$urls[] = array($langs->trans('URLGeneric'), $cdavserverurl.'/');
-	$urls[] = array($langs->trans('URLGeneric'), $cdavserverurl.'/principals/'.rawurlencode($user->login).'/');
+	$urls[] = array($langs->trans('URLUserAccount'), $cdavserverurl.'/principals/'.rawurlencode($user->login).'/');
 }
 if ($type === 'CardDAV') {
 	$urls[] = array($langs->trans('URLforCardDAV'), $cdavserverurl.'/addressbooks/'.rawurlencode($user->login).'/default/');
@@ -119,9 +119,9 @@ if ($type === 'CardDAV') {
 	}
 }
 print '<div class="div-table-responsive-no-min"><table class="noborder centpercent">';
-print '<tr class="liste_titre"><th>'.$langs->trans('Description').'</th><th>URL</th></tr>';
+print '<tr class="liste_titre"><th>'.$langs->trans('Description').'</th><th class="soixantepercent">URL</th></tr>';
 foreach ($urls as $entry) {
-	print '<tr class="oddeven"><td>'.dol_escape_htmltag($entry[0]).'</td><td><input class="flat minwidth300 quatrevingtpercent" type="text" readonly value="'.dol_escape_htmltag($entry[1]).'"></td></tr>';
+	print '<tr class="oddeven"><td>'.dol_escape_htmltag($entry[0]).'</td><td class="wordbreak">'.showValueWithClipboardCPButton($entry[1], 0).'</td></tr>';
 }
 if (!$urls) print '<tr class="oddeven"><td colspan="2"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>';
 print '</table></div>';
