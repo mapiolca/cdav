@@ -1,4 +1,4 @@
-# CDav 3.3 — UTF-8 — fr_FR
+# CDav 3.3.1 — UTF-8 — fr_FR
 Module562387Name=CDav
 Module562387Desc=Synchroniser les contacts et calendriers Dolibarr avec CardDAV, CalDAV et ICS.
 CardDAV=CardDAV
@@ -15,6 +15,9 @@ CDAV_QRCODE_DAVX5_ENABLED=QR code de configuration DAVx⁵
 CDAV_QRCODE_DAVX5_ENABLEDTooltip=Afficher un QR code propre à l’entité sur les pages d’URL de connexion. Les interrupteurs sont enregistrés immédiatement.
 CDAV_CONTACT_TAG=Filtre par catégorie de contacts
 CDAV_CONTACT_TAGTooltip=Laisser vide pour synchroniser tous les contacts accessibles.
+CDAV_CONTACT_SYNC_CIVILITY=Synchroniser le titre (civilité) des contacts
+CDAV_CONTACT_SYNC_CIVILITYTooltip=Désactivé par défaut : ne pas envoyer la civilité (M., Mme…) aux clients CardDAV et préserver celle de Dolibarr lors des mises à jour. Le poste/fonction reste synchronisé. Cet interrupteur est enregistré immédiatement pour cette entité.
+CDavContactsUnavailable=Le carnet de contacts est temporairement indisponible.
 CDAV_THIRD_SYNC=Synchronisation des tiers
 CDAV_THIRD_SYNC_0=Désactivée
 CDAV_THIRD_SYNC_1=Uniquement les tiers sans contact

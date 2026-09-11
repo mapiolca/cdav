@@ -8,6 +8,7 @@ require __DIR__.'/../lib/cdav.lib.php';
 require __DIR__.'/../class/CardDAVDolibarr.php';
 function dol_buildpath($url, $mode) { return 'https://erp.example.test'.$url; }
 function isModEnabled($name) { return false; }
+function getDolGlobalInt($name, $default = 0) { return $default; }
 class FormatLang { public function load($file) {} public function transnoentities($key) { return 'Contact'; } }
 class FormatDb { public function query($sql) { return false; } }
 class FormatCards extends \Sabre\CardDAV\Backend\Dolibarr {

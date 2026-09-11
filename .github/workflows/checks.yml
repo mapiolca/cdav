@@ -2,7 +2,7 @@ name: CDav checks
 
 on:
   push:
-    branches: [master, 'feat/**']
+    branches: [master, 'feat/**', 'fix/**']
   pull_request:
     branches: [master]
 
@@ -39,7 +39,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: dom, simplexml, mbstring, ctype, date, iconv, json, xml, xmlwriter, gd, exif, openssl, fileinfo
+          extensions: dom, simplexml, mbstring, ctype, date, iconv, json, xml, xmlwriter, gd, exif, openssl, fileinfo, pdo_sqlite
           coverage: none
       - name: Lint, languages, simulated ERP and real bundled Sabre/CSRF
         run: python3 scripts/run_checks.py --core-htdocs .test-cache/core/htdocs
