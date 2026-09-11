@@ -1,5 +1,12 @@
 # ChangeLog
 
+## 3.3.1 — Non publiée
+
+- CardDAV exclut les contacts dont le tiers est inaccessible : affectation commerciale ou extension d’accès native, permissions, confidentialité et partages d’entité cumulés. Les contacts sans tiers restent soumis à leurs propres règles. Le contrôle couvre les listes, les lectures directes ou multiples et les modifications/suppressions.
+- L’indicateur de changement du carnet Contacts suit son périmètre visible, y compris après retrait d’une affectation commerciale ou changement de catégorie. Une erreur de lecture du carnet est signalée sans présenter un carnet vide.
+- Nouveau réglage CardDAV par entité, désactivé par défaut, pour synchroniser le titre/civilité des contacts. Désactivé, il omet la civilité des vCards et conserve celle de Dolibarr lors des mises à jour ; le poste/fonction reste synchronisé. L’affichage facultatif du nom du tiers ne remplace plus la civilité.
+- Aucun changement de schéma ni nettoyage des contacts. Après mise à jour, vérifier la nouvelle synchronisation et le retrait des anciens contacts hors périmètre sur les clients déployés. Les essais d’instance et de clients restent à exécuter ; voir `doc/correctifs-3.3.1.md`.
+
 ## 3.3 — Non publiée
 
 - Réglages répartis dans cinq onglets natifs : Réglages, CardDAV, CalDAV, Compatibilité et À propos ; sauvegarde limitée à l’onglet et à l’entité, avec validation des références. L’aide de connexion et les informations et avertissements de compatibilité restent visibles dans des notifications natives persistantes.

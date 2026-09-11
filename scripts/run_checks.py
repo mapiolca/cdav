@@ -24,11 +24,13 @@ def run(command, marker=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--php", default="php")
+    parser.add_argument("--php-arg", action="append", default=[], help="Extra PHP CLI argument (repeatable, e.g. --php-arg=-d --php-arg=extension=pdo_sqlite)")
     parser.add_argument("--core-htdocs", action="append", type=Path, default=[])
     args = parser.parse_args()
+    php = [args.php, *args.php_arg]
     files = sorted(p for p in ROOT.rglob("*.php") if not any(part in {".git", ".test-cache", "vendor"} for part in p.relative_to(ROOT).parts))
     for path in files:
-        run([args.php, "-l", str(path)], "No syntax errors detected")
+        run([*php, "-l", str(path)], "No syntax errors detected")
     print(f"PHP lint passed: {len(files)} files.")
     catalogs = {}
     for locale in ("en_US", "fr_FR", "de_DE", "es_ES", "it_IT"):
@@ -50,17 +52,19 @@ def main():
                 raise SystemExit(f"Translation placeholders: {locale}/{key}")
     print(f"Translation keys and placeholders passed: {len(expected)} keys in five languages.")
     for test in ("settings", "routes", "generation", "documents"):
-        run([args.php, str(ROOT / "test" / (test + ".php"))])
+        run([*php, str(ROOT / "test" / (test + ".php"))])
     for scenario in ("allowed", "denied", "false", "null", "bad-password", "ambiguous"):
-        run([args.php, str(ROOT / "test/authentication.php"), scenario], "ADMISSION_CHECK_PASSED")
+        run([*php, str(ROOT / "test/authentication.php"), scenario], "ADMISSION_CHECK_PASSED")
     print("6 simulated transverse admission checks passed.")
     for core in args.core_htdocs:
         core = core.resolve()
         print(f"Bundled Sabre and native CSRF from: {core}")
         for test in ("sabre", "filesystem", "native", "formats"):
-            run([args.php, str(ROOT / "test" / (test + ".php")), str(core)])
+            run([*php, str(ROOT / "test" / (test + ".php")), str(core)])
+        for category in ("0", "5"):
+            run([*php, str(ROOT / "test/carddav.php"), str(core), category])
         for scenario in ("post-valid", "post-missing", "post-expired", "get-valid", "get-missing", "get-expired"):
-            run([args.php, str(ROOT / "test/security.php"), str(core), scenario], "CSRF_CHECK_PASSED")
+            run([*php, str(ROOT / "test/security.php"), str(core), scenario], "CSRF_CHECK_PASSED")
         print("6 native CSRF checks passed (simulated session).")
     if not args.core_htdocs:
         print("Sabre and native CSRF not executed: pass --core-htdocs.")

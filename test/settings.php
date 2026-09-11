@@ -34,5 +34,8 @@ check(count(cdavValidateSettings($db, 'carddav', array('CDAV_CONTACT_TAG' => '99
 $disabled = array('project');
 check(count(cdavValidateSettings($db, 'caldav', array('CDAV_TASK_SYNC' => '1'))) === 1, 'disabled dependency');
 $all = array_merge(array_keys(cdavSettingsDefinition('setup')), array_keys(cdavSettingsDefinition('carddav')), array_keys(cdavSettingsDefinition('caldav')));
-check(count($all) === count(array_unique($all)) && count($all) === 23, 'independent tabs retain all 23 constants');
+check(count($all) === count(array_unique($all)) && count($all) === 24, 'independent tabs retain all 24 constants');
+check(!cdavValidateSettings($db, 'carddav', array('CDAV_CONTACT_SYNC_CIVILITY' => '0')), 'civility sync disabled');
+check(!cdavValidateSettings($db, 'carddav', array('CDAV_CONTACT_SYNC_CIVILITY' => '1')), 'civility sync enabled');
+check(count(cdavValidateSettings($db, 'carddav', array('CDAV_CONTACT_SYNC_CIVILITY' => '2'))) === 1, 'invalid civility switch');
 echo "$checks settings checks passed (simulated).\n";

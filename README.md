@@ -1,14 +1,16 @@
-# CDav 3.3 for Dolibarr
+# CDav 3.3.1 for Dolibarr
 
 CDav synchronizes native Dolibarr contacts, third parties, members, calendars, project tasks and interventions through CardDAV and CalDAV. It also provides read-only ICS subscriptions and controlled WebDAV access to native documents.
 
-Original module: **Befox SARL**, module ID **562387**, GPL-3.0-or-later. This fork retains the CDav identity and existing configuration keys. Version 3.3 is under development on `feat/cdav-3.3`; publishing this branch does not create a release.
+Original module: **Befox SARL**, module ID **562387**, GPL-3.0-or-later. This fork retains the CDav identity and existing configuration keys. Version 3.3.1 is under development on `fix/3.3.1-fix-contacts-permissions`; no release has been published.
 
 ## Compatibility
 
 The module minimum remains **Dolibarr 16.0 and PHP 8.0**. Source contracts have been checked for every major version from **16 through 24**. The PHP requirements of the installed Dolibarr core and its bundled libraries also apply.
 
 The [source matrix](doc/core-contracts.md) records immutable core commits and API signatures. The [validation report](doc/validation-3.3.md) distinguishes source checks, simulations and real integration tests still to run. **A real Multicompany installation, including transverse mode, has not been tested.**
+
+The [3.3.1 correction report](doc/correctifs-3.3.1.md) records the contact access and civility changes, their focused checks and remaining instance/client validation.
 
 The internal Compatibility tab reports the actual runtime, bundled Sabre, required PHP extensions, optional modules, document configuration and unavailable features. HTTPS, Authorization forwarding, PATH_INFO, filesystem permissions and client synchronization require checks on the real server.
 
@@ -40,7 +42,7 @@ Version 3.3 adds `cdav_card` for protocol URI/UID mappings, scoped by entity, ki
 ## Five native settings tabs
 
 - **Settings**: synchronization key, DAVx⁵ QR-code option and links to your client configuration URLs.
-- **CardDAV**: contact category, third-party synchronization mode and members.
+- **CardDAV**: contact category, optional contact civility synchronization, third-party synchronization mode and members.
 - **CalDAV**: synchronization period, project tasks, interventions, user roles, initial/final services, duration override and working hours.
 - **Compatibility**: detected prerequisites and feature availability, with reasons and version thresholds.
 - **About**: descriptor version, identity, license, original publisher, maintainer and useful links.
@@ -68,6 +70,12 @@ Use **one DAV account per entity**. The path selects the entity before loading i
 Authentication uses native Dolibarr mechanisms. Multicompany admission is checked separately before loading rights for the target entity, including centralized transverse accounts. Discovery includes the target entity's native user/group assignments. CDav relies on native object sharing and does not introduce competing CDav sharing settings.
 
 Creations belong to the target entity; shared objects keep their original owner. Contact photos use that owner's document directory. A missing directory configuration causes an explicit refusal, without falling back to another entity. Administrators still need the relevant native functional rights.
+
+Contacts linked to a third party require access to that third party as well as contact read permission. Without the native extension to all third parties (`societe.client.voir`), only third parties assigned to the current user as a sales representative qualify. Parent and contact entity sharing, private contacts and the existing pure-supplier read restriction also apply. Unlinked contacts retain their own access rules; a missing or inaccessible parent does not make a linked contact public. Lists, discovery metadata, individual/multiple reads and checks before updates or archival use the same scope.
+
+The **Synchronize contact titles (civility)** switch (`CDAV_CONTACT_SYNC_CIVILITY`) is **off by default**, independently per entity. It controls the Dolibarr civility field (Mr, Ms…), carried in the vCard name prefix, in both directions. When off, CardDAV omits this prefix and ignores incoming prefixes, preserving an existing Dolibarr civility. Job titles (`poste` / vCard `TITLE`) remain synchronized. The optional company-name display remains in the formatted name without replacing civility.
+
+Contact collection change tags include the visible membership and the civility option, so revoking an assignment or changing this switch prompts a new scan. CDav still requires a full rescan for unknown sync tokens; it does not maintain an incremental deletion history. Check removal of previously downloaded contacts with your deployed clients after upgrading. No database cleanup is performed by these changes.
 
 ### Clients
 
@@ -107,7 +115,7 @@ python scripts/run_checks.py --core-htdocs /path/to/dolibarr/htdocs
 python scripts/check_core_contracts.py --core /path/to/dolibarr-git
 ```
 
-The first command lints the module, checks five-language parity and runs focused tests. Providing core sources also runs real Sabre parsers and the native CSRF block against simulated data/session services. The second reads tags 16.0.0 through 24.0.0. Neither command installs Dolibarr or certifies Multicompany.
+The first command lints the module, checks five-language parity and runs focused tests. Providing core sources also runs real Sabre parsers and the native CSRF block against simulated data/session services. The contact tests require **PDO SQLite for testing only** and evaluate the backend SQL with a documented adaptation of MySQL `GROUP_CONCAT`; production remains MySQL/MariaDB. If the extension is installed but not loaded, append `--php-arg=-d --php-arg=extension=pdo_sqlite`. The second command reads tags 16.0.0 through 24.0.0. Neither command installs Dolibarr or certifies Multicompany.
 
 [GitHub Actions](.github/workflows/checks.yml) runs the focused suite with Dolibarr 16 libraries/PHP 8.0 and Dolibarr 24 libraries/PHP 8.4 using [setup-php](https://github.com/shivammathur/setup-php). Its jobs explicitly identify the simulated ERP environment. PHPStan should additionally be run with the deployment's native core configuration when available.
 
